@@ -23,6 +23,10 @@ on:
         type: string
         description: "List of additional build contexts (e.g., name=path)"
         required: false
+      platforms:
+        type: string
+        description: "List of platforms for which to build the image"
+        default: linux/amd64,linux/arm64
       
     secrets:
       registryUser:
@@ -61,7 +65,7 @@ jobs:
         with:
           context: ${{ inputs.dockerContext }}
           file: ${{ inputs.dockerFile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
+          platforms: ${{ inputs.platforms }}
           tags: "${{ inputs.imageName }}:${{ inputs.imageTag }}"
           build-args: ${{ inputs.buildArgs }}
+          push: true
