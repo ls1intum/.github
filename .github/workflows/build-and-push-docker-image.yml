@@ -6,19 +6,23 @@ on:
       imageName:
         type: string
         default: ${{ github.repository }}
-        description: "The name for the docker image. (Default: Repositoy name)"
+        description: "The name for the docker image (Default: Repository name)"
       imageTag:
         type: string
         required: true
-        description: "The tag for the docker image. (usually a version tag without leading 'v')"
+        description: "The tag for the docker image (usually a version tag without leading 'v')"
       dockerFile:
         type: string
         default: Dockerfile
-        description: "The path to the Dockerfile. (Default: ./Dockerfile)"
+        description: "The path to the Dockerfile (Default: ./Dockerfile)"
       dockerContext:
         type: string
         default: .
-        description: "The context for the Docker build. (Default: .)"
+        description: "The context for the Docker build (Default: .)"
+      buildArgs:
+        type: string
+        description: "List of additional build contexts (e.g., name=path)"
+        required: false
       
     secrets:
       registryUser:
@@ -60,3 +64,4 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: "${{ inputs.imageName }}:${{ inputs.imageTag }}"
+          build-args: ${{ inputs.buildArgs }}
