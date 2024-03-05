@@ -30,9 +30,9 @@ on:
       
     secrets:
       registry-user:
-        required: true
+        required: false
       registry-password:
-        required: true
+        required: false
 
 jobs:
   build:
