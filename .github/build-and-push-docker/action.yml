@@ -1,0 +1,75 @@
+name: Build and Push Docker Image
+description: Builds and pushes a Docker image to a container registry
+branding:
+  icon: 'package'
+  color: 'green'
+
+inputs:
+  image-name:
+    default: ${{ github.repository }}
+    description: "The name for the docker image (Default: Repository name)"
+  docker-file:
+    default: Dockerfile
+    description: "The path to the Dockerfile (Default: ./Dockerfile)"
+  docker-context:
+    default: .
+    description: "The context for the Docker build (Default: .)"
+  build-args:
+    description: "List of additional build contexts (e.g., name=path)"
+    required: false
+  platforms:
+    description: "List of platforms for which to build the image"
+    default: linux/amd64,linux/arm64
+  registry:
+    default: ghcr.io
+    description: "The registry to push the image to (Default: ghcr.io)"
+  registry-user:
+    default: ${{ github.actor }}
+    description: "The username for the registry"
+  registry-password:
+    default: ${{ secrets.GITHUB_TOKEN }}
+    description: "The password for the registry"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: all
+
+    - name: Install Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.registry-user }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.image-name }}
+        tags: |
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=ref,event=branch
+          type=ref,event=pr
+
+    - name: Build and push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ inputs.docker-context }}
+        file: ${{ inputs.docker-file }}
+        platforms: ${{ inputs.platforms }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: ${{ inputs.build-args }}
+        push: true
