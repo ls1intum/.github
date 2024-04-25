@@ -30,6 +30,14 @@ inputs:
     default: ${{ github.token }}
     description: "The password for the registry"
 
+outputs:
+  tags: 
+    value: ${{ steps.meta.outputs.tags }}
+    description: "The tags for the Docker image"
+  labels: 
+    value: ${{ steps.meta.outputs.labels }}
+    description: "The labels for the Docker image"
+
 runs:
   using: "composite"
   steps:
