@@ -19,6 +19,14 @@ on:
         type: string
         description: "List of additional build contexts (e.g., name=path)"
         required: false
+      labels:
+        type: string
+        description: "Label that should be appended to the image"
+        required: false
+      tags:
+        type: string
+        description: "Tags that should be appended to the image"
+        required: false
       platforms:
         type: string
         description: "List of platforms for which to build the image"
@@ -66,8 +74,11 @@ jobs:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tags }}
             type=ref,event=branch
             type=ref,event=pr
+          labels: |
+            ${{ inputs.labels }}
 
       - name: Build and push Docker Image
         uses: docker/build-push-action@v5
