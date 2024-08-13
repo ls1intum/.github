@@ -27,6 +27,10 @@ on:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
+      network:
+        type: string
+        default: default
+        description: "Networking mode for the RUN instructions during build (Default: default)"
       
     secrets:
       registry-user:
@@ -78,4 +82,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
+          network: ${{ inputs.network }}
           push: true
