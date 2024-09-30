@@ -65,7 +65,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
-          config-inline: |
+          buildkitd-config-inline: |
             [registry."docker.io"]
               mirrors = ["https://your.mirror.url"]
 
