@@ -67,7 +67,7 @@ jobs:
           driver-opts: "network=${{ inputs.network }}"
           buildkitd-config-inline: |
             [registry."docker.io"]
-              mirrors = ["https://your.mirror.url"]
+              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
 
 
       - name: Log in to the Container registry
