@@ -2,9 +2,9 @@
 
 Repository containing workflow templates and other guidelines
 
-## Build & Deploy via GitHub Actions
+## Workflows
 
-### Setup
+### Build & Deploy via GitHub Actions
 
 #### 1. Dockerize your Application
 
