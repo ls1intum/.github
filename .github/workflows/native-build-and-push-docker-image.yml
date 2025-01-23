@@ -67,7 +67,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.image-name }}
+          images: ${{ inputs.registry }}/${{ inputs.image-name }}
 
       - name: Build and push Docker Image
         id: build
@@ -75,10 +75,10 @@ jobs:
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
-          tags: ${{ inputs.image-name }}
+          tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
-          outputs: type=image,"name=${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
         run: |
@@ -132,7 +132,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ inputs.image-name }}
+          images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
@@ -142,8 +142,8 @@ jobs:
         working-directory: ${{ runner.temp }}/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ inputs.image-name }}@sha256:%s ' *)          
+            $(printf '${{ inputs.registry }}/${{ inputs.image-name }}@sha256:%s ' *)          
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ${{ inputs.registry }}/${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
