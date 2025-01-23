@@ -78,7 +78,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
-          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
         run: |
