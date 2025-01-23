@@ -75,9 +75,7 @@ jobs:
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
-          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
           outputs: type=image,"name=${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
