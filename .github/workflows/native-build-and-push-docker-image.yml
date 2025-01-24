@@ -31,6 +31,10 @@ on:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
+    outputs:
+      image_tag: 
+        description: "The tag of the image that was built"
+        value: ${{ jobs.merge.outputs.image_tag }}
       network:
         type: string
         default: default
@@ -121,6 +125,8 @@ jobs:
 
   merge:
     runs-on: ubuntu-latest
+    outputs: 
+      image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
       - build
     steps:
@@ -168,3 +174,7 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ inputs.registry }}/${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
+          
+      - id: output-image-tag
+        run: |
+          echo "image_tag=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
