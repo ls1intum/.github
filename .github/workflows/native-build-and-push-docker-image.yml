@@ -19,10 +19,22 @@ on:
         type: string
         description: "List of additional build contexts (e.g., name=path)"
         required: false
+      labels:
+        type: string
+        description: "Label that should be appended to the image"
+        required: false
+      tags:
+        type: string
+        description: "Tags that should be appended to the image"
+        required: false
       registry:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
+      network:
+        type: string
+        default: default
+        description: "Networking mode for the RUN instructions during build (Default: default)"
       
     secrets:
       registry-user:
@@ -55,6 +67,11 @@ jobs:
   
       - name: Install Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: "network=${{ inputs.network }}"
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -78,6 +95,7 @@ jobs:
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
+          network: ${{ inputs.network }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
@@ -135,8 +153,11 @@ jobs:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tags }}
             type=ref,event=branch
-            type=ref,event=pr            
+            type=ref,event=pr
+          labels: |
+            ${{ inputs.labels }}        
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
