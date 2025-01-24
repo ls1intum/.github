@@ -31,15 +31,15 @@ on:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
-    outputs:
-      image_tag: 
-        description: "The tag of the image that was built"
-        value: ${{ jobs.merge.outputs.image_tag }}
       network:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
-      
+    outputs:
+      image_tag: 
+        description: "The tag of the image that was built"
+        value: ${{ jobs.merge.outputs.image_tag }}
+    
     secrets:
       registry-user:
         required: false
