@@ -54,7 +54,7 @@ jobs:
     name: Build Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.pre-build.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.pre-build.outputs.matrix).include }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       - name: Checkout
