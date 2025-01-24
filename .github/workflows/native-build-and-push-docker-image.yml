@@ -19,10 +19,6 @@ on:
         type: string
         description: "List of additional build contexts (e.g., name=path)"
         required: false
-      platforms:
-        type: string
-        default: linux/amd64:ubuntu-22.04,linux/arm64:ubuntu-22.04-arm
-        description: "List of platform:runner pairs for building the image"
       registry:
         type: string
         default: ghcr.io
@@ -35,26 +31,16 @@ on:
         required: false
 
 jobs:
-  pre-build:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Generate matrix
-        id: set-matrix
-        run: |
-          platforms="${{ inputs.platforms }}"
-          matrix=$(echo "${platforms}" | jq -Rc '
-            split(",") | map(split(":") | { platform: .[0], runner: .[1] }) | { include: . }'
-          )
-          echo "matrix=${matrix}" >> $GITHUB_ENV
-  
   build:
-    needs: pre-build
     name: Build Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.pre-build.outputs.matrix).include }}
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-22.04
+          - platform: linux/arm64
+            runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       - name: Checkout
