@@ -26,7 +26,7 @@ on:
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
-        value: ${{ jobs.build.outputs.image_tag }}
+        value: ${{ jobs.merge.outputs.image_tag }}
       
     secrets:
       registry-user:
@@ -108,7 +108,7 @@ jobs:
   merge:
     runs-on: ubuntu-latest
     outputs: 
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
       - build
     steps:
