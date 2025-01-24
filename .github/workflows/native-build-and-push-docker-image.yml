@@ -48,14 +48,13 @@ jobs:
             split(",") | map(split(":") | { platform: .[0], runner: .[1] }) | { include: . }'
           )
           echo "matrix=${matrix}" >> $GITHUB_ENV
-          echo "::set-output name=matrix::${matrix}"
   
   build:
     needs: pre-build
     name: Build Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.pre-build.outputs.matrix).include }}
+      matrix: ${{ fromJson(needs.pre-build.outputs.matrix) }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       - name: Checkout
