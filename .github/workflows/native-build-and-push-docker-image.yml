@@ -107,6 +107,8 @@ jobs:
 
   merge:
     runs-on: ubuntu-latest
+    outputs: 
+      image_tag: ${{ steps.meta.outputs.image_tag }}
     needs:
       - build
     steps:
