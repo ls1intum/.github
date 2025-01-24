@@ -91,7 +91,7 @@ jobs:
             ${{ inputs.labels }}
 
       - name: Build and push Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
