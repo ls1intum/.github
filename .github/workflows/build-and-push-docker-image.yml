@@ -19,6 +19,14 @@ on:
         type: string
         description: "List of additional build contexts (e.g., name=path)"
         required: false
+      labels:
+        type: string
+        description: "Label that should be appended to the image"
+        required: false
+      tags:
+        type: string
+        description: "Tags that should be appended to the image"
+        required: false
       platforms:
         type: string
         description: "List of platforms for which to build the image"
@@ -27,6 +35,10 @@ on:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
+      network:
+        type: string
+        default: default
+        description: "Networking mode for the RUN instructions during build (Default: default)"
       
     secrets:
       registry-user:
@@ -51,6 +63,12 @@ jobs:
   
       - name: Install Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: "network=${{ inputs.network }}"
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
+
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -66,8 +84,11 @@ jobs:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.tags }}
             type=ref,event=branch
             type=ref,event=pr
+          labels: |
+            ${{ inputs.labels }}
 
       - name: Build and push Docker Image
         uses: docker/build-push-action@v6
@@ -78,4 +99,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
+          network: ${{ inputs.network }}
           push: true
