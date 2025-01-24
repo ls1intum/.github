@@ -23,6 +23,10 @@ on:
         type: string
         default: ghcr.io
         description: "The registry to push the image to (Default: ghcr.io)"
+    outputs:
+      image_tag: 
+        description: "The tag of the image that was built"
+        value: ${{ jobs.build.outputs.image_tag }}
       
     secrets:
       registry-user:
@@ -147,3 +151,8 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ inputs.registry }}/${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
+          
+      - id: output-image-tag
+        run: |
+          echo "image_tag=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
+      
