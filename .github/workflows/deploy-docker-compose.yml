@@ -27,6 +27,12 @@ on:
         type: string
         description: "Image tag to deploy (default: pr-<number> if PR exists, latest for default branch)"
       
+      env-file-name:
+        type: string
+        default: ".env"
+        description: "The name of the .env file to create on the VM (Default: .env)"
+        required: false
+      
       # Note: A reusable workflow has no access to the secrets of the calling workflow
       # Pass the secrets and your variables as inputs to the reusable workflow, GitHub will censor the secrets in the logs
       env-secrets-and-variables:
@@ -116,9 +122,9 @@ jobs:
             if [ -f "$COMPOSE_FILE" ]; then
               echo "$COMPOSE_FILE found."
           
-              # Check if .env exists
-              if [ -f ".env" ]; then
-                docker compose -f "$COMPOSE_FILE" --env-file=".env" down --remove-orphans --rmi all ${{ inputs.remove-volumes && '--volumes' || '' }}
+              # Check if .env with env-file-name exists
+              if [ -f "${{ inputs.env-file-name }}" ]; then
+                docker compose -f "$COMPOSE_FILE" --env-file="${{ inputs.env-file-name }}" down --remove-orphans --rmi all ${{ inputs.remove-volumes && '--volumes' || '' }}
               else
                 docker compose -f "$COMPOSE_FILE" down --remove-orphans --rmi all
               fi
@@ -139,7 +145,7 @@ jobs:
           source: ${{ inputs.docker-compose-file }}
           target: /home/${{ vars.VM_USERNAME }}
 
-      - name: SSH to VM and create .env file
+      - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ vars.VM_HOST }}
@@ -150,12 +156,12 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
-            touch .env
+            touch ${{ inputs.env-file-name }}
 
-            echo "ENVIRONMENT=${{ inputs.environment }}" > .env
-            echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> .env
+            echo "ENVIRONMENT=${{ inputs.environment }}" > ${{ inputs.env-file-name }}
+            echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> ${{ inputs.env-file-name }}
             if [ "${{ inputs.env-vars }}" != "" ]; then
-              echo "${{ inputs.env-vars }}" >> .env
+              echo "${{ inputs.env-vars }}" >> ${{ inputs.env-file-name }}
             fi
 
       - name: SSH to VM and execute docker compose up
@@ -169,4 +175,4 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
-            docker compose -f ${{ inputs.docker-compose-file }} --env-file=.env up --pull=always -d
+            docker compose -f ${{ inputs.docker-compose-file }} --env-file=${{ inputs.env-file-name }} up --pull=always -d
