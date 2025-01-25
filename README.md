@@ -77,10 +77,13 @@ jobs:
     environment: Development # Replace with your environment from the GitHub Environments
     outputs:
       # Define the environment variables that you want to pass to the docker-compose deployment
-      env-vars: |
-        SECRET_1=${{ vars.SECRET_1 }}
-        ENV_VAR_1=${{ vars.ENV_VAR_1 }}
-        ENV_VAR_2=${{ vars.ENV_VAR_2 }}
+      env: |
+        # Secrets
+        SECRET_1=${{ secrets.SECRET_1 }}
+
+        # Variables
+        VAR_1=${{ vars.VAR_1 }}
+        VAR_2=${{ vars.VAR_2 }}
     steps:
       - name: Do nothing
         run: echo "Nothing to do here"
@@ -94,7 +97,7 @@ jobs:
       main-image-name: ls1intum/<image-name> # For checking if images with image tag exist
       image-tag: ${{ inputs.image-tag }}
       env-file-name: .env.test1 # (Optional) Path to the .env file, defaults to .env
-      env-secrets-and-variables: ${{ needs.read-environment.outputs.env-vars }} # (Optional)
+      env-secrets-and-variables: ${{ needs.read-environment.outputs.env }} # (Optional)
       remove-volumes: false # (Optional) Remove volumes after stopping the services
 ```
 
