@@ -13,20 +13,20 @@ Create a Dockerfile for all your services that you want to deploy.
 #### 2. Setup Build and Push Docker Image Workflow
 
 > [!IMPORTANT]
-> We want to maintain a consistent workflow for our docker images accross all repositories and maintain it at a central place. Therefore, we provide a workflow that you can call in your repository without the need to copy the workflow file!
+> We want to maintain a consistent workflow for our docker images across all repositories and maintain it at a central place. Therefore, we provide a workflow that you can call in your repository without the need to copy the workflow file!
 
 Create a new GitHub Actions workflow file (e.g., .github/workflows/build-and-push.yml) in your repository with the following content:
 
 ```yaml
 name: Build and Push Docker Image
 
-on: # Adjust the triggers, conditions, etc. to your needs
+on: # Adjust the triggers, conditions, etc. to your needs, see examples below
   pull_request:
   push:
     branches: [main]
 
 jobs:
-  # You can also build and push multiple images in parallel using a matrix
+  # You can also build and push multiple images in parallel using a matrix (see examples)
   build-and-push-workflow:
     uses: ls1intum/.github/.github/workflows/build-and-push-docker-image.yml@main
     with:
@@ -35,9 +35,16 @@ jobs:
     secrets: inherit
 ```
 
+**Examples:**
+
+- `Hades` repository: [build.yml](https://github.com/ls1intum/hades/blob/main/.github/workflows/build.yml)
+- `Hephaestus` repository: [build-and-push-docker.yml](https://github.com/ls1intum/Hephaestus/blob/develop/.github/workflows/build-and-push-docker.yml)
+- `Apollon_standalone` repository: [build-and-push.yml](https://github.com/ls1intum/Apollon_standalone/blob/main/.github/workflows/build-and-push.yml)
+
+
 #### 3. Create a Docker Compose File
 
-Include the images from the registry and have `IMAGE_TAG` as a placeholder for the image tag that you want to deploy, a name for the file could be `docker-compose.prod.yml`.
+Include the images from the registry and have `IMAGE_TAG` as a placeholder for the image tag that you want to deploy, i.e. `latest`, `pr-233`, etc. A name for the compose file could be `compose.prod.yaml`.
 
 ```yaml
 services:
@@ -46,8 +53,8 @@ services:
     ...
     environment:
       - SECRET_1=${SECRET_1}
-      - ENV_VAR_1=${ENV_VAR_1}
-      - ENV_VAR_2=${ENV_VAR_2}
+      - VAR_1=${VAR_1}
+      - VAR_2=${VAR_2}
     ...
 ...
 ```
