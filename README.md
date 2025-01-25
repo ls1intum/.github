@@ -116,10 +116,12 @@ jobs:
 2. Click `Environments` then `New environment`, if not already created
 3. Setup the following **secret**:
    - `VM_SSH_PRIVATE_KEY`: Paste the private key from the VM
+   - Other sensitive secrets/variables that you would like to pass to the reusable workflow
 4. Setup the following **variables**:
    - `VM_HOST`: The hostname of the VM, without protocol (e.g., `artemis.cit.tum.de`)
    - `VM_USERNAME`: `github_deployment`, the user you created on the VM
-5. Set required reviewers (people or teams) that should approve the workflow run before it can be deployed to the environment
+   - Other insensitive variables that you would like to pass to the reusable workflow. Caution: They will appear in the logs, use secrets for sensitive values!
+5. Set required reviewers (people or teams) that should approve the workflow run before it can be deployed to the environment. Note: Approval is needed if you are reading a protected environment
 
 #### 7. Deploy
 
