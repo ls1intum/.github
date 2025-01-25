@@ -72,7 +72,7 @@ on:
         description: "Image tag to deploy (default: pr-<number> if PR exists, latest for default branch)"
 
 jobs:  
-  prepare-env:
+  read-environment:
     runs-on: ubuntu-latest
     environment: Development # Replace with your environment from the GitHub Environments
     outputs:
@@ -86,15 +86,16 @@ jobs:
         run: echo "Nothing to do here"
 
   deploy:
-    needs: prepare-env
+    needs: read-environment
     uses: ls1intum/.github/.github/workflows/deploy-docker-compose.yml@main
     with:
       environment: Development # Replace with your environment 
       docker-compose-file: "./docker-compose.prod.yml" # Path to your docker-compose file
       main-image-name: ls1intum/<image-name> # For checking if images with image tag exist
       image-tag: ${{ inputs.image-tag }}
-      env-vars: ${{ needs.prepare-env.outputs.env-vars }}
-    secrets: inherit
+      env-file-name: .env.test1 # (Optional) Path to the .env file, defaults to .env
+      env-secrets-and-variables: ${{ needs.read-environment.outputs.env-vars }} # (Optional)
+      remove-volumes: false # (Optional) Remove volumes after stopping the services
 ```
 
 #### 5. Setup Deployment User on Virtual Machine
