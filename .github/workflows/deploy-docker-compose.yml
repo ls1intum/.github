@@ -7,20 +7,31 @@ on:
         type: string
         description: "The deployment environment (e.g., production, staging)"
         required: true
+      
       docker-compose-file:
         type: string
-        default: "./docker-compose.yml"
-        description: "Path to the Docker Compose file (Default: ./docker-compose.yml)"
+        default: "./compose.yaml"
+        description: "Path to the Docker Compose file (Default: ./compose.yaml)"
+      
+      remove-volumes:
+        type: boolean
+        default: false
+        description: "Remove named volumes declared in the 'volumes' section of the Compose file and anonymous volumes attached to containers"
+      
       main-image-name:
         type: string
         description: "The name of the main image for checking if it exists with the given tag"
         required: true
+      
       image-tag:
         type: string
         description: "Image tag to deploy (default: pr-<number> if PR exists, latest for default branch)"
-      env-vars:
+      
+      # Note: A reusable workflow has no access to the secrets of the calling workflow
+      # Pass the secrets and your variables as inputs to the reusable workflow, GitHub will censor the secrets in the logs
+      env-secrets-and-variables:
         type: string
-        description: "Additional environment variables in KEY=VALUE format, separated by newlines"
+        description: "Additional environment secrets/variables in KEY=VALUE format, separated by newlines. Use GitHub secrets for sensitive data since they will get automatically censored in the logs"
         required: false
 
 jobs:
@@ -107,7 +118,7 @@ jobs:
           
               # Check if .env exists
               if [ -f ".env" ]; then
-                docker compose -f "$COMPOSE_FILE" --env-file=".env" down --remove-orphans --rmi all
+                docker compose -f "$COMPOSE_FILE" --env-file=".env" down --remove-orphans --rmi all ${{ inputs.remove-volumes && '--volumes' || '' }}
               else
                 docker compose -f "$COMPOSE_FILE" down --remove-orphans --rmi all
               fi
