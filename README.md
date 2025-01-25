@@ -100,7 +100,7 @@ jobs:
 4. Add `github_deployment` to the docker group: `sudo usermod -aG docker github_deployment`
 5. Switch to `github_deployment` user: `sudo su github_deployment`
 6. Generate a new SSH key on VM: `ssh-keygen -t ed25519 -C "github_deployment@<VMHost>"`, leave passphrase empty
-7. Copy the public key to the authorized keys: `cp /home/github_deployment/.ssh/id_ed25519.pub /home/github_deployment/.ssh/authorized_keys`
+7. Copy the public key to the authorized keys: `cp /home/github_deployment/.ssh/id_ed25519.pub > /home/github_deployment/.ssh/authorized_keys`
 8. Copy the private key to your clipboard: `cat /home/github_deployment/.ssh/id_ed25519`
 
 #### 6. Setup GitHub Secrets, Variables, and Other Settings
