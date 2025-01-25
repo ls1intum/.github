@@ -99,6 +99,7 @@ jobs:
       env-file-name: .env.test1 # (Optional) Path to the .env file, defaults to .env
       env-secrets-and-variables: ${{ needs.read-environment.outputs.env }} # (Optional)
       remove-volumes: false # (Optional) Remove volumes after stopping the services
+    secrets: inherit
 ```
 
 #### 5. Setup Deployment User on Virtual Machine
