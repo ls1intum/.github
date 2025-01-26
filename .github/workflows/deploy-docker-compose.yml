@@ -87,7 +87,8 @@ jobs:
           IMAGE_NAME="${{ inputs.main-image-name }}"
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
 
-          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
+          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${ENCODED_TOKEN}" \
             https://ghcr.io/v2/${IMAGE_NAME}/tags/list \
             | jq -r --arg TAG "${IMAGE_TAG}" '.tags[] | select(. == $TAG)')
           
