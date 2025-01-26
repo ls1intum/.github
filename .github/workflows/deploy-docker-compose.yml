@@ -161,92 +161,11 @@ jobs:
           source: ${{ steps.extract_basename.outputs.basename }}
           target: /home/${{ vars.VM_USERNAME }}
 
-      - name: Create environment file content
-        id: create-env-file
-        env:
-          GH_ENV_SECRETS_JSON: ${{ toJson(secrets) }}
-          GH_ENV_VARS_JSON: ${{ toJson(vars) }}
-        run: |
-          echo "Secrets:"
-          echo "$GH_ENV_SECRETS_JSON"
-          echo "Variables:"
-          echo "$GH_ENV_VARS_JSON"
-          echo "==="
-          echo "Non-json secrets:"
-          echo "${{ secrets }}"
-          echo "Non-json variables:"
-          echo "${{ vars }}"
-
-
-          # # Initialize ENV_CONTENT with environment and image tag
-          # ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}"
-
-          # echo "Initializing ENV_CONTENT with environment and image tag."
-
-          # # Function to escape double quotes
-          # escape_quotes() {
-          #   echo "$1" | sed 's/"/\\"/g'
-          # }
-
-          # Append secrets
-          # if [ -n "${{ inputs.github-env-secret-names }}" ]; then
-          #   echo "Appending secrets to ENV_CONTENT."
-          #   IFS=$'\n' read -rd '' -a secret_names <<< "${{ inputs.github-env-secret-names }}"
-          #   for secret in "${secret_names[@]}"; do
-          #     # Trim any leading/trailing whitespace
-          #     secret=$(echo "$secret" | xargs)
-          #     if [ -n "$secret" ]; then
-          #       # Extract secret value from GH_ENV_SECRETS JSON
-          #       secret_value=$(echo "$GH_ENV_SECRETS" | jq -r --arg key "$secret" '.[$key] // empty')
-          #       if [ -n "$secret_value" ] && [ "$secret_value" != "null" ]; then
-          #         # Escape double quotes in secret_value
-          #         escaped_value=$(escape_quotes "$secret_value")
-          #         ENV_CONTENT+="${secret}=\"${escaped_value}\"\n"
-          #       else
-          #         echo "Warning: Secret '$secret' not found or is empty."
-          #       fi
-          #     fi
-          #   done
-          # fi
-
-          # # Append variables
-          # if [ -n "${{ inputs.github-env-variable-names }}" ]; then
-          #   echo "Appending variables to ENV_CONTENT."
-          #   IFS=$'\n' read -rd '' -a var_names <<< "${{ inputs.github-env-variable-names }}"
-          #   for var in "${var_names[@]}"; do
-          #     # Trim any leading/trailing whitespace
-          #     var=$(echo "$var" | xargs)
-          #     if [ -n "$var" ]; then
-          #       # Extract variable value from GH_ENV_VARS JSON
-          #       var_value=$(echo "$GH_ENV_VARS" | jq -r --arg key "$var" '.[$key] // empty')
-          #       if [ -n "$var_value" ] && [ "$var_value" != "null" ]; then
-          #         # Escape double quotes in var_value
-          #         escaped_var_value=$(escape_quotes "$var_value")
-          #         ENV_CONTENT+="${var}=\"${escaped_var_value}\"\n"
-          #       else
-          #         echo "Warning: Variable '$var' not found or is empty."
-          #       fi
-          #     fi
-          #   done
-          # fi
-
-          # # Remove trailing newline
-          # ENV_CONTENT=$(echo -e "$ENV_CONTENT" | sed '$ s/\n$//')
-
-          # echo "Final ENV_CONTENT:"
-          # echo -e "$ENV_CONTENT"
-
-          # # Set output
-          # {
-          #   echo "env-file-content<<EOF"
-          #   echo -e "$ENV_CONTENT"
-          #   echo "EOF"
-          # } >> $GITHUB_OUTPUT
-
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ENV_FILE_CONTENT: ${{ steps.create-env-file.outputs.content }}
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+          VARS_CONTEXT: ${{ toJson(vars) }}
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
@@ -256,8 +175,17 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
+            # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
+            # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
+            EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            to_envs() { jq -r "to_entries[] | \"\(.key)<<$EOF\n\(.value)\n$EOF\n\""; }
+            
             ENV_FILE="${{ inputs.env-file-name }}"
-            echo "$ENV_FILE_CONTENT" > "$ENV_FILE"
+            echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
+            echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
+            
+            echo "$VARS_CONTEXT" | to_envs >> "$ENV_FILE"
+            echo "$SECRETS_CONTEXT" | to_envs >> "$ENV_FILE"
 
       - name: SSH to VM and execute docker compose up
         uses: appleboy/ssh-action@v1.0.3
