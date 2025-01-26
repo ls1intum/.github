@@ -29,7 +29,7 @@ on:
         default: ".env"
         description: "The name of the .env file to create on the VM (Default: .env)"
         required: false
-    
+
       github-env-secret-names:
         type: string
         description: "List of environment variables from GitHub Secrets, separated by new lines. Example: 'SECRET1\nSECRET2\nSECRET3'"
@@ -45,7 +45,7 @@ on:
         default: false
         description: "Remove named volumes declared in the 'volumes' section of the Compose file and anonymous volumes attached to containers"
         required: false
-    
+
 jobs:
   prepare-deploy:
     runs-on: ubuntu-latest
@@ -87,8 +87,7 @@ jobs:
           IMAGE_NAME="${{ inputs.main-image-name }}"
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
 
-          ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
-          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${ENCODED_TOKEN}" \
+          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             https://ghcr.io/v2/${IMAGE_NAME}/tags/list \
             | jq -r --arg TAG "${IMAGE_TAG}" '.tags[] | select(. == $TAG)')
           
@@ -167,60 +166,88 @@ jobs:
           GH_ENV_SECRETS: ${{ toJson(secrets) }}
           GH_ENV_VARS: ${{ toJson(vars) }}
         run: |
+          echo "GH_ENV_SECRETS=$GH_ENV_SECRETS"
+          echo "GH_ENV_VARS=$GH_ENV_VARS"
+
+          # Write test file to steps.create-env-file.outputs.content for debugging
           ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}\n"
+          {
+
+            echo "env-file-content<<EOF"
+            echo -e "$ENV_CONTENT"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+
+          # # Initialize ENV_CONTENT with environment and image tag
+          # ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}"
+
+          # echo "Initializing ENV_CONTENT with environment and image tag."
+
+          # # Function to escape double quotes
+          # escape_quotes() {
+          #   echo "$1" | sed 's/"/\\"/g'
+          # }
 
           # Append secrets
-          if [ -n "${{ inputs.github-env-secret-names }}" ]; then
-            IFS=$'\n' read -rd '' -a secret_names <<< "${{ inputs.github-env-secret-names }}"
-            for secret in "${secret_names[@]}"; do
-              # Trim any leading/trailing whitespace
-              secret=$(echo "$secret" | xargs)
-              if [ -n "$secret" ]; then
-                # Extract secret value from GH_ENV_SECRETS JSON
-                secret_value=$(echo "$GH_ENV_SECRETS" | jq -r --arg key "$secret" '.[$key] // empty')
-                if [ -n "$secret_value" ]; then
-                  ENV_CONTENT+="${secret}=${secret_value}\n"
-                else
-                  echo "Warning: Secret '$secret' not found or is empty."
-                fi
-              fi
-            done
-          fi
+          # if [ -n "${{ inputs.github-env-secret-names }}" ]; then
+          #   echo "Appending secrets to ENV_CONTENT."
+          #   IFS=$'\n' read -rd '' -a secret_names <<< "${{ inputs.github-env-secret-names }}"
+          #   for secret in "${secret_names[@]}"; do
+          #     # Trim any leading/trailing whitespace
+          #     secret=$(echo "$secret" | xargs)
+          #     if [ -n "$secret" ]; then
+          #       # Extract secret value from GH_ENV_SECRETS JSON
+          #       secret_value=$(echo "$GH_ENV_SECRETS" | jq -r --arg key "$secret" '.[$key] // empty')
+          #       if [ -n "$secret_value" ] && [ "$secret_value" != "null" ]; then
+          #         # Escape double quotes in secret_value
+          #         escaped_value=$(escape_quotes "$secret_value")
+          #         ENV_CONTENT+="${secret}=\"${escaped_value}\"\n"
+          #       else
+          #         echo "Warning: Secret '$secret' not found or is empty."
+          #       fi
+          #     fi
+          #   done
+          # fi
 
-          # Append variables
-          if [ -n "${{ inputs.github-env-variable-names }}" ]; then
-            IFS=$'\n' read -rd '' -a var_names <<< "${{ inputs.github-env-variable-names }}"
-            for var in "${var_names[@]}"; do
-              # Trim any leading/trailing whitespace
-              var=$(echo "$var" | xargs)
-              if [ -n "$var" ]; then
-                # Extract variable value from GH_ENV_VARS JSON
-                var_value=$(echo "$GH_ENV_VARS" | jq -r --arg key "$var" '.[$key] // empty')
-                if [ -n "$var_value" ]; then
-                  ENV_CONTENT+="${var}=${var_value}\n"
-                else
-                  echo "Warning: Variable '$var' not found or is empty."
-                fi
-              fi
-            done
-          fi
+          # # Append variables
+          # if [ -n "${{ inputs.github-env-variable-names }}" ]; then
+          #   echo "Appending variables to ENV_CONTENT."
+          #   IFS=$'\n' read -rd '' -a var_names <<< "${{ inputs.github-env-variable-names }}"
+          #   for var in "${var_names[@]}"; do
+          #     # Trim any leading/trailing whitespace
+          #     var=$(echo "$var" | xargs)
+          #     if [ -n "$var" ]; then
+          #       # Extract variable value from GH_ENV_VARS JSON
+          #       var_value=$(echo "$GH_ENV_VARS" | jq -r --arg key "$var" '.[$key] // empty')
+          #       if [ -n "$var_value" ] && [ "$var_value" != "null" ]; then
+          #         # Escape double quotes in var_value
+          #         escaped_var_value=$(escape_quotes "$var_value")
+          #         ENV_CONTENT+="${var}=\"${escaped_var_value}\"\n"
+          #       else
+          #         echo "Warning: Variable '$var' not found or is empty."
+          #       fi
+          #     fi
+          #   done
+          # fi
 
-          # Remove trailing newline
-          ENV_CONTENT=$(echo -e "$ENV_CONTENT" | sed '$ s/\n$//')
+          # # Remove trailing newline
+          # ENV_CONTENT=$(echo -e "$ENV_CONTENT" | sed '$ s/\n$//')
 
-          # Set output
-          echo "env-file-content<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$ENV_CONTENT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # echo "Final ENV_CONTENT:"
+          # echo -e "$ENV_CONTENT"
 
-          # Log the content of the .env file
-          echo "Created environment content with the following content:"
-          echo -e "$ENV_CONTENT"
+          # # Set output
+          # {
+          #   echo "env-file-content<<EOF"
+          #   echo -e "$ENV_CONTENT"
+          #   echo "EOF"
+          # } >> $GITHUB_OUTPUT
 
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ENV_FILE_CONTENT: ${{ steps.create-env-file.outputs.env-file-content }}
+          ENV_FILE_CONTENT: ${{ steps.create-env-file.outputs.content }}
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
