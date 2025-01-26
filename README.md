@@ -72,24 +72,7 @@ on:
         description: "Image tag to deploy (default: pr-<number> if PR exists, latest for default branch)"
 
 jobs:  
-  read-environment:
-    runs-on: ubuntu-latest
-    environment: Development # Replace with your environment from the GitHub Environments
-    outputs:
-      # Define the environment variables that you want to pass to the docker-compose deployment
-      env: |
-        # Secrets
-        SECRET_1=${{ secrets.SECRET_1 }}
-
-        # Variables
-        VAR_1=${{ vars.VAR_1 }}
-        VAR_2=${{ vars.VAR_2 }}
-    steps:
-      - name: Do nothing
-        run: echo "Nothing to do here"
-
   deploy:
-    needs: read-environment
     uses: ls1intum/.github/.github/workflows/deploy-docker-compose.yml@main
     with:
       environment: Development # Replace with your environment 
@@ -97,10 +80,13 @@ jobs:
       main-image-name: ls1intum/<image-name> # For checking if images with image tag exist
       image-tag: ${{ inputs.image-tag }}
       env-file-name: .env.test1 # (Optional) Path to the .env file, defaults to .env
-      env-secrets-and-variables: ${{ needs.read-environment.outputs.env }} # (Optional)
       remove-volumes: false # (Optional) Remove volumes after stopping the services
     secrets: inherit
 ```
+
+**Examples:**
+
+- `Hephaestus` repository: [deploy-prod.yml](https://github.com/ls1intum/Hephaestus/blob/develop/.github/workflows/deploy-prod.yml)
 
 #### 5. Setup Deployment User on Virtual Machine
 
