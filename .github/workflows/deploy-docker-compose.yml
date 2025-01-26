@@ -30,6 +30,16 @@ on:
         description: "The name of the .env file to create on the VM (Default: .env)"
         required: false
       
+      # github-env-variable-names:
+      #   type: string
+      #   description: "List of environment variables from GitHub Variables"
+      #   required: false
+
+      # github-env-secret-names:
+      #   type: string
+      #   description: "List of environment variables from GitHub Secrets"
+      #   required: false
+      
       # Note: A reusable workflow has no access to the secrets of the calling workflow
       # Pass the secrets and your variables as inputs to the reusable workflow, GitHub will censor the secrets in the logs
       env-secrets-and-variables:
@@ -158,6 +168,31 @@ jobs:
           source: ${{ steps.extract_basename.outputs.basename }}
           target: /home/${{ vars.VM_USERNAME }}
 
+      - name: Log GitHub Env
+        run: |
+          echo "GITHUB_ENV:"
+          cat $GITHUB_ENV
+          echo "GITHUB_OUTPUT:"
+          cat $GITHUB_OUTPUT
+        shell: bash
+
+      # - name: Parse environment variable and secret names
+      #   id: parse-env-names
+      #   run: |
+      #     ENV_NAMES=(${{ inputs.github-env-variable-names }})
+      #     SECRET_NAMES=(${{ inputs.github-env-secret-names }})
+
+      #     ENV_SECRETS_AND_VARIABLES=""
+      #     for ENV_NAME in "${ENV_NAMES[@]}"; do
+      #       ENV_SECRETS_AND_VARIABLES="${ENV_SECRETS_AND_VARIABLES}${ENV_NAME}=${!ENV_NAME}\n"
+      #     done
+
+      #     for SECRET_NAME in "${SECRET_NAMES[@]}"; do
+      #       ENV_SECRETS_AND_VARIABLES="${ENV_SECRETS_AND_VARIABLES}${SECRET_NAME}=${{ secrets[SECRET_NAME] }}\n"
+      #     done
+
+      #     echo "env-secrets-and-variables=${ENV_SECRETS_AND_VARIABLES}" >> $GITHUB_OUTPUT
+
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -174,9 +209,8 @@ jobs:
             echo "ENVIRONMENT=${{ inputs.environment }}" > ${{ inputs.env-file-name }}
             echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> ${{ inputs.env-file-name }}
             if [ -n "${{ inputs.env-secrets-and-variables }}" != "" ]; then
-              cat <<EOF >> "${{ inputs.env-file-name }}"
-              ${{ inputs.env-secrets-and-variables }}
-              EOF
+              ESCAPED_SECRETS=$(echo "${{ inputs.env-secrets-and-variables }}" | sed 's/"/\\"/g')
+              echo "${ESCAPED_SECRETS}" >> "${{ inputs.env-file-name }}"
             fi
 
       - name: SSH to VM and execute docker compose up
