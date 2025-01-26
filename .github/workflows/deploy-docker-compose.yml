@@ -7,45 +7,45 @@ on:
         type: string
         description: "The deployment environment (e.g., production, staging)"
         required: true
-      
+          
       docker-compose-file:
         type: string
         default: "./compose.yaml"
         description: "Path to the Docker Compose file (Default: ./compose.yaml)"
         required: true
-      
+          
       main-image-name:
         type: string
         description: "The name of the main image for checking if it exists with the given tag"
         required: true
-      
+          
       image-tag:
         type: string
         description: "Image tag to deploy (default: pr-<number> if PR exists, latest for default branch)"
         required: true
-      
+          
       env-file-name:
         type: string
         default: ".env"
         description: "The name of the .env file to create on the VM (Default: .env)"
         required: false
-
+    
       github-env-secret-names:
         type: string
         description: "List of environment variables from GitHub Secrets, separated by new lines. Example: 'SECRET1\nSECRET2\nSECRET3'"
         required: false
-      
+          
       github-env-variable-names:
         type: string
         description: "List of environment variables from GitHub Variables, separated by new lines. Example: 'VAR1\nVAR2\nVAR3'"
         required: false
-
+    
       remove-volumes:
         type: boolean
         default: false
         description: "Remove named volumes declared in the 'volumes' section of the Compose file and anonymous volumes attached to containers"
         required: false
-
+    
 jobs:
   prepare-deploy:
     runs-on: ubuntu-latest
@@ -161,15 +161,13 @@ jobs:
           source: ${{ steps.extract_basename.outputs.basename }}
           target: /home/${{ vars.VM_USERNAME }}
 
-      - name: Create  file content
+      - name: Create environment file content
         id: create-env-file
         env:
           GH_ENV_SECRETS: ${{ toJson(secrets) }}
           GH_ENV_VARS: ${{ toJson(vars) }}
         run: |
-          ENV_FILE="${{ inputs.env-file-name }}"
-          echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
-          echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
+          ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}\n"
 
           # Append secrets
           if [ -n "${{ inputs.github-env-secret-names }}" ]; then
@@ -181,7 +179,7 @@ jobs:
                 # Extract secret value from GH_ENV_SECRETS JSON
                 secret_value=$(echo "$GH_ENV_SECRETS" | jq -r --arg key "$secret" '.[$key] // empty')
                 if [ -n "$secret_value" ]; then
-                  echo "${secret}=${secret_value}" >> "$ENV_FILE"
+                  ENV_CONTENT+="${secret}=${secret_value}\n"
                 else
                   echo "Warning: Secret '$secret' not found or is empty."
                 fi
@@ -199,7 +197,7 @@ jobs:
                 # Extract variable value from GH_ENV_VARS JSON
                 var_value=$(echo "$GH_ENV_VARS" | jq -r --arg key "$var" '.[$key] // empty')
                 if [ -n "$var_value" ]; then
-                  echo "${var}=${var_value}" >> "$ENV_FILE"
+                  ENV_CONTENT+="${var}=${var_value}\n"
                 else
                   echo "Warning: Variable '$var' not found or is empty."
                 fi
@@ -207,21 +205,22 @@ jobs:
             done
           fi
 
-          # Capture the content of the .env file
-          ENV_CONTENT=$(cat "$ENV_FILE")
+          # Remove trailing newline
+          ENV_CONTENT=$(echo -e "$ENV_CONTENT" | sed '$ s/\n$//')
+
+          # Set output
           echo "env-file-content<<EOF" >> $GITHUB_OUTPUT
-          echo "$ENV_CONTENT" >> $GITHUB_OUTPUT
+          echo -e "$ENV_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           # Log the content of the .env file
-          echo "Created $ENV_FILE with the following content:"
-          echo "$ENV_CONTENT"
+          echo "Created environment content with the following content:"
+          echo -e "$ENV_CONTENT"
 
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         env:
-          GH_ENV_SECRETS: ${{ toJson(secrets) }}
-          GH_ENV_VARS: ${{ toJson(vars) }}
+          ENV_FILE_CONTENT: ${{ steps.create-env-file.outputs.env-file-content }}
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
@@ -232,7 +231,7 @@ jobs:
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
             ENV_FILE="${{ inputs.env-file-name }}"
-            echo "$env-file-content" > "$ENV_FILE"
+            echo "$ENV_FILE_CONTENT" > "$ENV_FILE"
 
       - name: SSH to VM and execute docker compose up
         uses: appleboy/ssh-action@v1.0.3
