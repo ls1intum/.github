@@ -173,8 +173,10 @@ jobs:
 
             echo "ENVIRONMENT=${{ inputs.environment }}" > ${{ inputs.env-file-name }}
             echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> ${{ inputs.env-file-name }}
-            if [ "${{ inputs.env-secrets-and-variables }}" != "" ]; then
-              echo "${{ inputs.env-secrets-and-variables }}" >> ${{ inputs.env-file-name }}
+            if [ -n "${{ inputs.env-secrets-and-variables }}" != "" ]; then
+              cat <<EOF >> "${{ inputs.env-file-name }}"
+              ${{ inputs.env-secrets-and-variables }}
+              EOF
             fi
 
       - name: SSH to VM and execute docker compose up
