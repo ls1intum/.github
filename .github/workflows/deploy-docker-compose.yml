@@ -153,7 +153,8 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           source: ${{ inputs.docker-compose-file }}
-          target: /home/${{ vars.VM_USERNAME }}/${{ steps.extract_basename.outputs.basename }}
+          strip_components: 10 # Removes the first 10 leading path components from the source path
+          target: /home/${{ vars.VM_USERNAME }}
 
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
