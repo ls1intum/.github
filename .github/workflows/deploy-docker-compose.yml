@@ -29,24 +29,17 @@ on:
         default: ".env"
         description: "The name of the .env file to create on the VM (Default: .env)"
         required: false
-      
-      # github-env-variable-names:
-      #   type: string
-      #   description: "List of environment variables from GitHub Variables"
-      #   required: false
 
-      # github-env-secret-names:
-      #   type: string
-      #   description: "List of environment variables from GitHub Secrets"
-      #   required: false
-      
-      # Note: A reusable workflow has no access to the secrets of the calling workflow
-      # Pass the secrets and your variables as inputs to the reusable workflow, GitHub will censor the secrets in the logs
-      env-secrets-and-variables:
+      github-env-secret-names:
         type: string
-        description: "Additional environment secrets/variables in KEY=VALUE format, separated by newlines. Use GitHub secrets for sensitive data since they will get automatically censored in the logs"
+        description: "List of environment variables from GitHub Secrets, separated by new lines. Example: 'SECRET1\nSECRET2\nSECRET3'"
         required: false
       
+      github-env-variable-names:
+        type: string
+        description: "List of environment variables from GitHub Variables, separated by new lines. Example: 'VAR1\nVAR2\nVAR3'"
+        required: false
+
       remove-volumes:
         type: boolean
         default: false
@@ -168,35 +161,11 @@ jobs:
           source: ${{ steps.extract_basename.outputs.basename }}
           target: /home/${{ vars.VM_USERNAME }}
 
-      - name: Log GitHub Env
-        env:
-          SECRETS: ${{ toJson(secrets) }}
-          VARS: ${{ toJson(vars) }}
-        run: |
-          echo "GitHub Environment Secrets:"
-          echo "$SECRETS"
-          echo "GitHub Environment Variables:"
-          echo "$VARS"          
-
-      # - name: Parse environment variable and secret names
-      #   id: parse-env-names
-      #   run: |
-      #     ENV_NAMES=(${{ inputs.github-env-variable-names }})
-      #     SECRET_NAMES=(${{ inputs.github-env-secret-names }})
-
-      #     ENV_SECRETS_AND_VARIABLES=""
-      #     for ENV_NAME in "${ENV_NAMES[@]}"; do
-      #       ENV_SECRETS_AND_VARIABLES="${ENV_SECRETS_AND_VARIABLES}${ENV_NAME}=${!ENV_NAME}\n"
-      #     done
-
-      #     for SECRET_NAME in "${SECRET_NAMES[@]}"; do
-      #       ENV_SECRETS_AND_VARIABLES="${ENV_SECRETS_AND_VARIABLES}${SECRET_NAME}=${{ secrets[SECRET_NAME] }}\n"
-      #     done
-
-      #     echo "env-secrets-and-variables=${ENV_SECRETS_AND_VARIABLES}" >> $GITHUB_OUTPUT
-
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GH_ENV_SECRETS: ${{ toJson(secrets) }}
+          GH_ENV_VARS: ${{ toJson(vars) }}
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
@@ -206,14 +175,57 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
-            touch ${{ inputs.env-file-name }}
+            #!/bin/bash
+            set -e  # Exit immediately if a command exits with a non-zero status
+      
+            # Define the environment file path
+            ENV_FILE="${{ inputs.env-file-name }}"
+      
+            # Create or empty the environment file
+            > "$ENV_FILE"
+      
+            # Write static environment variables
+            echo "ENVIRONMENT=${{ inputs.environment }}" >> "$ENV_FILE"
+            echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
 
-            echo "ENVIRONMENT=${{ inputs.environment }}" > ${{ inputs.env-file-name }}
-            echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> ${{ inputs.env-file-name }}
-            if [ -n "${{ inputs.env-secrets-and-variables }}" != "" ]; then
-              ESCAPED_SECRETS=$(echo "${{ inputs.env-secrets-and-variables }}" | sed 's/"/\\"/g')
-              echo "${ESCAPED_SECRETS}" >> "${{ inputs.env-file-name }}"
+            # Function to append key=value to the env file
+            append_env() {
+              local key="$1"
+              local value="$2"
+              echo "${key}=${value}" >> "$ENV_FILE"
+            }
+
+            # Parse and append secrets
+            if [ -n "${{ inputs.github-env-secret-names }}" ]; then
+              IFS=$'\n' read -rd '' -a secret_names <<< "${{ inputs.github-env-secret-names }}"
+              for secret in "${secret_names[@]}"; do
+                # Extract the secret value using jq
+                secret_value=$(echo "$GH_ENV_SECRETS" | jq -r --arg key "$secret" '.[$key]')
+                if [ "$secret_value" != "null" ]; then
+                  append_env "$secret" "$secret_value"
+                else
+                  echo "Warning: Secret '$secret' not found in Github Environment Secrets."
+                fi
+              done
             fi
+
+            # Parse and append variables
+            if [ -n "${{ inputs.github-env-variable-names }}" ]; then
+              IFS=$'\n' read -rd '' -a var_names <<< "${{ inputs.github-env-variable-names }}"
+              for var in "${var_names[@]}"; do
+                # Extract the variable value using jq
+                var_value=$(echo "$GH_ENV_VARS" | jq -r --arg key "$var" '.[$key]')
+                if [ "$var_value" != "null" ]; then
+                  append_env "$var" "$var_value"
+                else
+                  echo "Warning: Variable '$var' not found in Github Environment Variables."
+                fi
+              done
+            fi
+
+            # Optional: Display the created .env file for verification
+            echo "Created $ENV_FILE with the following content:"
+            cat "$ENV_FILE"
 
       - name: SSH to VM and execute docker compose up
         uses: appleboy/ssh-action@v1.0.3
