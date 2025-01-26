@@ -105,6 +105,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract basename of docker-compose-file
+        id: extract_basename
+        run: |
+          BASENAME=$(basename "${{ inputs.docker-compose-file }}")
+          echo "basename=$BASENAME" >> $GITHUB_OUTPUT
+        shell: bash
+
       - name: SSH to VM and execute docker compose down (if exists)
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -119,7 +126,7 @@ jobs:
             #!/bin/bash
             set -e  # Exit immediately if a command exits with a non-zero status
 
-            COMPOSE_FILE="${{ inputs.docker-compose-file }}"
+            COMPOSE_FILE="${{ steps.extract_basename.outputs.basename }}"
 
             # Check if docker-compose.prod.yml exists
             if [ -f "$COMPOSE_FILE" ]; then
@@ -134,13 +141,6 @@ jobs:
             else
               echo "$COMPOSE_FILE does not exist. Skipping docker compose down."
             fi
-
-      - name: Extract basename of docker-compose-file
-        id: extract_basename
-        run: |
-          BASENAME=$(basename "${{ inputs.docker-compose-file }}")
-          echo "basename=$BASENAME" >> $GITHUB_OUTPUT
-        shell: bash
 
       - name: Copy docker compose file to VM host
         uses: appleboy/scp-action@v0.1.7
@@ -185,4 +185,4 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
-            docker compose -f ${{ inputs.docker-compose-file }} --env-file=${{ inputs.env-file-name }} up --pull=always -d
+            docker compose -f ${{ steps.extract_basename.outputs.basename }} --env-file=${{ inputs.env-file-name }} up --pull=always -d
