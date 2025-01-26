@@ -167,12 +167,21 @@ jobs:
           GH_ENV_SECRETS: ${{ toJson(secrets) }}
           GH_ENV_VARS: ${{ toJson(vars) }}
         run: |
-          printf "GH_ENV_SECRETS=\"%s\"\n" "$GH_ENV_SECRETS"
-          echo "GH_ENV_VARS=$GH_ENV_VARS"
+          # Ensure jq is installed
+          if ! command -v jq &> /dev/null; then
+            echo "jq is not installed. Installing jq..."
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
 
-          # Safely print GH_ENV_VARS by escaping double quotes
-          printf "GH_ENV_VARS=\"%s\"\n" "$GH_ENV_VARS"
-          
+          # Safely escape the JSON strings using jq
+          escaped_secrets=$(printf '%s' "$GH_ENV_SECRETS" | jq -c .)
+          escaped_vars=$(printf '%s' "$GH_ENV_VARS" | jq -c .)
+
+          # Print the escaped JSON strings
+          echo "GH_ENV_SECRETS=$escaped_secrets"
+          echo "GH_ENV_VARS=$escaped_vars"
+
           # Write test file to steps.create-env-file.outputs.content for debugging
           ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}\n"
           {
