@@ -169,12 +169,14 @@ jobs:
           target: /home/${{ vars.VM_USERNAME }}
 
       - name: Log GitHub Env
+        env:
+          SECRETS: ${{ toJson(secrets) }}
+          VARS: ${{ toJson(vars) }}
         run: |
-          echo "GITHUB_ENV:"
-          cat $GITHUB_ENV
-          echo "GITHUB_OUTPUT:"
-          cat $GITHUB_OUTPUT
-        shell: bash
+          echo "GitHub Environment Secrets:"
+          echo "$SECRETS"
+          echo "GitHub Environment Variables:"
+          echo "$VARS"          
 
       # - name: Parse environment variable and secret names
       #   id: parse-env-names
