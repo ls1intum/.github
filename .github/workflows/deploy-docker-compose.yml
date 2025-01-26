@@ -164,38 +164,18 @@ jobs:
       - name: Create environment file content
         id: create-env-file
         env:
-          GH_ENV_SECRETS: ${{ toJson(secrets) }}
-          GH_ENV_VARS: ${{ toJson(vars) }}
+          GH_ENV_SECRETS_JSON: ${{ toJson(secrets) }}
+          GH_ENV_VARS_JSON: ${{ toJson(vars) }}
         run: |
-          # Ensure jq is installed
-          if ! command -v jq &> /dev/null; then
-            echo "jq is not installed. Installing jq..."
-            sudo apt-get update
-            sudo apt-get install -y jq
-          fi
-
-          # Validate JSON to ensure it's well-formed
-          echo "$GH_ENV_SECRETS" | jq empty
-          echo "$GH_ENV_VARS" | jq empty
-
-          # Safely escape the JSON strings using jq
-          escaped_secrets=$(printf '%s' "$GH_ENV_SECRETS" | jq -c .)
-          escaped_vars=$(printf '%s' "$GH_ENV_VARS" | jq -c .)
-
-          # Set environment variables using GITHUB_ENV with proper quoting
-          echo "GH_ENV_SECRETS=$escaped_secrets" >> $GITHUB_ENV
-          echo "GH_ENV_VARS=$escaped_vars" >> $GITHUB_ENV
-
-          # Optional: Print confirmation messages without exposing secrets
-          echo "GH_ENV_SECRETS and GH_ENV_VARS have been set successfully."
-
-          # Write test file to steps.create-env-file.outputs.content for debugging
-          ENV_CONTENT="ENVIRONMENT=Production\nIMAGE_TAG=latest\n"
-          {
-            echo "env-file-content<<EOF"
-            echo -e "$ENV_CONTENT"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
+          echo "Secrets:"
+          echo "$GH_ENV_SECRETS_JSON"
+          echo "Variables:"
+          echo "$GH_ENV_VARS_JSON"
+          echo "==="
+          echo "Non-json secrets:"
+          echo "${{ secrets }}"
+          echo "Non-json variables:"
+          echo "${{ vars }}"
 
 
           # # Initialize ENV_CONTENT with environment and image tag
