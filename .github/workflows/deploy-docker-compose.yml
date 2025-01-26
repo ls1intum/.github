@@ -165,19 +165,34 @@ jobs:
         id: generate_env
         run: |
           ENV_FILE="${{ inputs.env-file-name }}"
+    
+          # Start by adding static environment variables with quoted values
+          echo "ENVIRONMENT=\"${{ inputs.environment }}\"" > "$ENV_FILE"
+          echo "IMAGE_TAG=\"${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}\"" >> "$ENV_FILE"
           
-          # Start by adding static environment variables
-          echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
-          echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
+          # Define a list of keys to exclude
+          EXCLUDE_KEYS=("DEPLOYMENT_GATEWAY_PORT" "DEPLOYMENT_GATEWAY_SSH_KEY" "DEPLOYMENT_GATEWAY_USER" "DEPLOYMENT_GATEWAY_HOST" "VM_SSH_PRIVATE_KEY" "VM_USERNAME" "VM_HOST")
           
-          # Append variables from VARS_CONTEXT
-          echo "$VARS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value | @json)"' >> "$ENV_FILE"
+          # Convert the exclude keys array to a JSON array for jq
+          EXCLUDE_JSON=$(printf '%s\n' "${EXCLUDE_KEYS[@]}" | jq -R . | jq -s .)
           
-          # Append secrets from SECRETS_CONTEXT
-          echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value | @json)"' >> "$ENV_FILE"
+          # Append variables from VARS_CONTEXT with quoted and escaped values, excluding certain keys
+          echo "$VARS_CONTEXT" | jq -r --argjson exclude "$EXCLUDE_JSON" '
+            to_entries[]
+            | select(( $exclude | index(.key )) | not)
+            | "\(.key)=\(.value | @json)"
+          ' >> "$ENV_FILE"
+          
+          # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
+          echo "$SECRETS_CONTEXT" | jq -r --argjson exclude "$EXCLUDE_JSON" '
+            to_entries[]
+            | select(( $exclude | index(.key )) | not)
+            | "\(.key)=\(.value | @json)"
+          ' >> "$ENV_FILE"
 
+          # Optional: Verify the contents of the environment file
           ls -la
-          cat $ENV_FILE
+          cat "$ENV_FILE"
         env:
           VARS_CONTEXT: ${{ toJson(vars) }}
           SECRETS_CONTEXT: ${{ toJson(secrets) }}
