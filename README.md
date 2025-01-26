@@ -111,11 +111,7 @@ jobs:
    - `VM_HOST`: The hostname of the VM, without protocol (e.g., `artemis.cit.tum.de`)
    - `VM_USERNAME`: `github_deployment`, the user you created on the VM
 5. Set required reviewers (people or teams) that should approve the workflow run before it can be deployed to the environment. Note: Approval is needed if you are reading a protected environment
-6. Add your sensitive secrets to `Environment secrets` and your insensitive variables to `Environment variables`:
-   - Example:
-     - `SECRET_1`: Your secret value
-     - `VAR_1`: Your variable value
-     - `VAR_2`: Your variable value
+6. Add your sensitive secrets to `Environment secrets` and your insensitive variables to `Environment variables`
    - Caution: Variables will be **visible in the logs**, secrets will be **automatically censored by GitHub**
 
 #### 7. Deploy
