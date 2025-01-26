@@ -177,6 +177,7 @@ jobs:
           echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$ENV_FILE"
 
           ls -la
+          cat $ENV_FILE
         env:
           VARS_CONTEXT: ${{ toJson(vars) }}
           SECRETS_CONTEXT: ${{ toJson(secrets) }}
