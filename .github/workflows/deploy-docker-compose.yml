@@ -170,22 +170,25 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
           echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
 
-          # Define keys to exclude
-          EXCLUDED_KEYS="DEPLOYMENT_GATEWAY_PORT,DEPLOYMENT_GATEWAY_SSH_KEY,DEPLOYMENT_GATEWAY_USER,DEPLOYMENT_GATEWAY_HOST,VM_SSH_PRIVATE_KEY,VM_USERNAME,VM_HOST"
-
-          # Convert the comma-separated string into a format suitable for jq's del function
-          DEL_KEYS=$(echo $EXCLUDED_KEYS | sed 's/,/, /g')
-
           # Append variables from VARS_CONTEXT with quoted and escaped values, excluding certain keys
-          echo "$VARS_CONTEXT" | jq -r --arg del_keys "$DEL_KEYS" '
-            del( $del_keys | split(", ")[] )
+          echo "$VARS_CONTEXT" | jq -r '
+            del(
+              .DEPLOYMENT_GATEWAY_PORT,
+              .DEPLOYMENT_GATEWAY_USER,
+              .DEPLOYMENT_GATEWAY_HOST,
+              .VM_USERNAME,
+              .VM_HOST
+            )
             | to_entries[]
             | "\(.key)=\(.value | @json)"
           ' >> "$ENV_FILE"
           
           # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
-          echo "$SECRETS_CONTEXT" | jq -r --arg del_keys "$DEL_KEYS" '
-            del( $del_keys | split(", ")[] )
+          echo "$SECRETS_CONTEXT" | jq -r '
+            del(
+              .DEPLOYMENT_GATEWAY_SSH_KEY,
+              .VM_SSH_PRIVATE_KEY
+            )
             | to_entries[]
             | "\(.key)=\(.value | @json)"
           ' >> "$ENV_FILE"
