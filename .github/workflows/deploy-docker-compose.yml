@@ -174,16 +174,23 @@ jobs:
             sudo apt-get install -y jq
           fi
 
+          # Validate JSON to ensure it's well-formed
+          echo "$GH_ENV_SECRETS" | jq empty
+          echo "$GH_ENV_VARS" | jq empty
+
           # Safely escape the JSON strings using jq
           escaped_secrets=$(printf '%s' "$GH_ENV_SECRETS" | jq -c .)
           escaped_vars=$(printf '%s' "$GH_ENV_VARS" | jq -c .)
 
-          # Print the escaped JSON strings
-          echo "GH_ENV_SECRETS=$escaped_secrets"
-          echo "GH_ENV_VARS=$escaped_vars"
+          # Set environment variables using GITHUB_ENV with proper quoting
+          echo "GH_ENV_SECRETS=$escaped_secrets" >> $GITHUB_ENV
+          echo "GH_ENV_VARS=$escaped_vars" >> $GITHUB_ENV
+
+          # Optional: Print confirmation messages without exposing secrets
+          echo "GH_ENV_SECRETS and GH_ENV_VARS have been set successfully."
 
           # Write test file to steps.create-env-file.outputs.content for debugging
-          ENV_CONTENT="ENVIRONMENT=${{ inputs.environment }}\nIMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}\n"
+          ENV_CONTENT="ENVIRONMENT=Production\nIMAGE_TAG=latest\n"
           {
             echo "env-file-content<<EOF"
             echo -e "$ENV_CONTENT"
