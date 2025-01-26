@@ -161,6 +161,26 @@ jobs:
           source: ${{ steps.extract_basename.outputs.basename }}
           target: /home/${{ vars.VM_USERNAME }}
 
+      - name: Generate Environment File
+        id: generate_env
+        run: |
+          ENV_FILE="${{ inputs.env-file-name }}"
+          
+          # Start by adding static environment variables
+          echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
+          echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
+          
+          # Append variables from VARS_CONTEXT
+          echo "$VARS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$ENV_FILE"
+          
+          # Append secrets from SECRETS_CONTEXT
+          echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$ENV_FILE"
+
+          ls -la
+        env:
+          VARS_CONTEXT: ${{ toJson(vars) }}
+          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+
       - name: SSH to VM and create ${{ inputs.env-file-name }} file
         uses: appleboy/ssh-action@v1.0.3
         env:
