@@ -170,6 +170,19 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
           echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
 
+          # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
+          echo "$SECRETS_CONTEXT" | jq -r '
+            del(
+              .github_token,
+              .DOCKER_USERNAME,
+              .DOCKER_PASSWORD,
+              .DEPLOYMENT_GATEWAY_SSH_KEY,
+              .VM_SSH_PRIVATE_KEY
+            )
+            | to_entries[]
+            | "\(.key)=\(.value | @json)"
+          ' >> "$ENV_FILE"
+
           # Append variables from VARS_CONTEXT with quoted and escaped values, excluding certain keys
           echo "$VARS_CONTEXT" | jq -r '
             del(
@@ -182,18 +195,7 @@ jobs:
             | to_entries[]
             | "\(.key)=\(.value | @json)"
           ' >> "$ENV_FILE"
-          
-          # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
-          echo "$SECRETS_CONTEXT" | jq -r '
-            del(
-              .DEPLOYMENT_GATEWAY_SSH_KEY,
-              .VM_SSH_PRIVATE_KEY
-            )
-            | to_entries[]
-            | "\(.key)=\(.value | @json)"
-          ' >> "$ENV_FILE"
 
-          ls -la
           cat $ENV_FILE
         env:
           VARS_CONTEXT: ${{ toJson(vars) }}
