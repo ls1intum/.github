@@ -171,10 +171,10 @@ jobs:
           echo "IMAGE_TAG=${{ needs.prepare-deploy.outputs.image-tag-to-deploy }}" >> "$ENV_FILE"
           
           # Append variables from VARS_CONTEXT
-          echo "$VARS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$ENV_FILE"
+          echo "$VARS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value | @json)"' >> "$ENV_FILE"
           
           # Append secrets from SECRETS_CONTEXT
-          echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value)"' >> "$ENV_FILE"
+          echo "$SECRETS_CONTEXT" | jq -r 'to_entries[] | "\(.key)=\(.value | @json)"' >> "$ENV_FILE"
 
           ls -la
           cat $ENV_FILE
