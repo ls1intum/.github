@@ -96,10 +96,11 @@ jobs:
 2. Create new user called `github_deployment` with: `sudo adduser github_deployment --disabled-password`, you can leave all fields empty
 3. Check if docker is installed: `sudo docker info`, if not install with [these instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods)
 4. Add `github_deployment` to the docker group: `sudo usermod -aG docker github_deployment`
-5. Switch to `github_deployment` user: `sudo su github_deployment`
-6. Generate a new SSH key on VM: `ssh-keygen -t ed25519 -C "github_deployment@<VMHost>"`, leave passphrase empty
-7. Copy the public key to the authorized keys: `cat /home/github_deployment/.ssh/id_ed25519.pub > /home/github_deployment/.ssh/authorized_keys`
-8. Copy the private key to your clipboard: `cat /home/github_deployment/.ssh/id_ed25519`
+5. Create the deployment directory `/opt/github` and give `github_deployment` access: `sudo mkdir /opt/github && sudo chown github_deployment:github_deployment /opt/github`
+6. Switch to `github_deployment` user: `sudo su github_deployment`
+7. Generate a new SSH key on VM: `ssh-keygen -t ed25519 -C "github_deployment@<VMHost>"`, leave passphrase empty
+8. Copy the public key to the authorized keys: `cat /home/github_deployment/.ssh/id_ed25519.pub > /home/github_deployment/.ssh/authorized_keys`
+9. Copy the private key to your clipboard: `cat /home/github_deployment/.ssh/id_ed25519`
 
 #### 6. Setup GitHub Secrets, Variables, and Other Settings
 
