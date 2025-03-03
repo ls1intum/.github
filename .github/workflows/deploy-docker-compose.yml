@@ -83,9 +83,11 @@ jobs:
           IMAGE_NAME="${{ inputs.main-image-name }}"
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
 
+          echo "Checking for image ${IMAGE_NAME}:${IMAGE_TAG}"
+
           ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json" \
             -H "Authorization: Bearer ${ENCODED_TOKEN}" \
             "https://ghcr.io/v2/${IMAGE_NAME}/manifests/${IMAGE_TAG}")
           
