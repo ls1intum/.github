@@ -83,16 +83,21 @@ jobs:
           IMAGE_NAME="${{ inputs.main-image-name }}"
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
 
+          echo "Checking for image ${IMAGE_NAME}:${IMAGE_TAG}"
+
           ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
-          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${ENCODED_TOKEN}" \
-            https://ghcr.io/v2/${IMAGE_NAME}/tags/list \
-            | jq -r --arg TAG "${IMAGE_TAG}" '.tags[] | select(. == $TAG)')
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json" \
+            -H "Authorization: Bearer ${ENCODED_TOKEN}" \
+            "https://ghcr.io/v2/${IMAGE_NAME}/manifests/${IMAGE_TAG}")
           
-          if [ -z "$TAG_EXISTS" ]; then
+          echo "HTTP status: $STATUS"
+          
+          if [ "$STATUS" -eq "200" ]; then
+            echo "Image ${IMAGE_NAME}:${IMAGE_TAG} exists."
+          else
             echo "Image ${IMAGE_NAME}:${IMAGE_TAG} does not exist."
             exit 1
-          else
-            echo "Image ${IMAGE_NAME}:${IMAGE_TAG} exists."
           fi
 
   deploy:
