@@ -84,9 +84,11 @@ jobs:
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
 
           ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
-          TAG_EXISTS=$(curl -s -H "Authorization: Bearer ${ENCODED_TOKEN}" \
-            https://ghcr.io/v2/${IMAGE_NAME}/tags/list \
-            | jq -r --arg TAG "${IMAGE_TAG}" '.tags[] | select(. == $TAG)')
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${ENCODED_TOKEN}" "https://ghcr.io/v2/${IMAGE_NAME}/tags/list")
+          echo "Response: $RESPONSE"
+
+          TAG_EXISTS=$(echo "$RESPONSE" | jq -r --arg TAG "${IMAGE_TAG}" '.tags[] | select(. == $TAG)')
+          echo "Tag exists: ${TAG_EXISTS}"
           
           if [ -z "$TAG_EXISTS" ]; then
             echo "Image ${IMAGE_NAME}:${IMAGE_TAG} does not exist."
