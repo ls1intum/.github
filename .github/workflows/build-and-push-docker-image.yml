@@ -48,7 +48,7 @@ on:
 
 jobs:
   build:
-    name: Build Docker Image for ${{ inputs.image-name }}
+    name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: false
       matrix:
@@ -101,6 +101,8 @@ jobs:
           build-args: ${{ inputs.build-args }}
           network: ${{ inputs.network }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Prepare
         run: |
@@ -124,6 +126,7 @@ jobs:
           retention-days: 1
 
   merge:
+    name: Create and Push Multi-Arch Manifest
     runs-on: ubuntu-latest
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
@@ -162,6 +165,8 @@ jobs:
             type=raw,value=${{ inputs.tags }}
             type=ref,event=branch
             type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,prefix=,format=long
           labels: |
             ${{ inputs.labels }}        
 
