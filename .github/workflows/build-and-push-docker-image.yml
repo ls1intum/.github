@@ -72,7 +72,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - name: Git Checkout (default)
         uses: actions/checkout@v4
-        if: ${{ inputs.docker_ref == '' }}
+        if: ${{ inputs.ref == '' }}
         with:
           fetch-depth: 1
 
