@@ -3,6 +3,11 @@ name: Build and Push Docker Image natively
 on:
   workflow_call:
     inputs:
+      ref:
+        description: "The branch name, tag, or commit SHA to use for the build job."
+        required: false
+        default: ''
+        type: string
       image-name:
         type: string
         default: ${{ github.repository }}
@@ -59,8 +64,15 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
-      - name: Checkout
+      # Git Checkout
+      - name: Git Checkout (specific ref)
         uses: actions/checkout@v4
+        if: ${{ inputs.ref != '' }}
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Git Checkout (default)
+        uses: actions/checkout@v4
+        if: ${{ inputs.ref == '' }}
         with:
           fetch-depth: 1
 
