@@ -30,7 +30,11 @@ on:
         required: false
       tags:
         type: string
-        description: "Tags that should be appended to the image"
+        description: |
+          Tags for the image. Supports flexible formats:
+          - Comma-separated simple tags (e.g., "v1.0,latest,stable")
+          - Full docker/metadata-action tag configuration (e.g., "type=semver,pattern={{version}}")
+          - Mixed format with multiple lines (e.g., "v1.0,stable" on one line and "type=semver,pattern={{version}}" on another)
         required: false
       registry:
         type: string
@@ -164,16 +168,54 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Process tags input to support both simple tags and advanced configuration
+      - name: Prepare tag configuration
+        id: tag_config
+        run: |
+          # Use TAGS_CONFIG environment variable to store tags configuration
+          echo "TAGS_CONFIG<<EOF" >> $GITHUB_ENV
+          
+          # Default tagging configuration
+          echo "type=raw,value=latest,enable={{is_default_branch}}" >> $GITHUB_ENV
+          echo "type=ref,event=branch" >> $GITHUB_ENV
+          echo "type=ref,event=pr" >> $GITHUB_ENV
+          
+          # Check if tags input is provided
+          if [ -n "${{ inputs.tags }}" ]; then
+            # Process input line by line
+            echo "${{ inputs.tags }}" | while IFS= read -r line || [[ -n "$line" ]]; do
+              # Trim whitespace
+              line=$(echo "$line" | xargs)
+          
+              if [ -n "$line" ]; then
+                if [[ "$line" == *"type="* ]]; then
+                  # Line contains configuration, add it directly
+                  echo "$line" >> $GITHUB_ENV
+                else
+                  # Line contains simple tags, process as comma-separated list
+                  IFS=',' read -ra TAG_ARRAY <<< "$line"
+                  for tag in "${TAG_ARRAY[@]}"; do
+                    # Trim whitespace from each tag
+                    tag=$(echo "$tag" | xargs)
+                    if [ -n "$tag" ]; then
+                      echo "type=raw,value=${tag}" >> $GITHUB_ENV
+                    fi
+                  done
+                fi
+              fi
+            done
+          fi
+          
+          echo "EOF" >> $GITHUB_ENV
+
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ inputs.tags }}
-            type=ref,event=branch
-            type=ref,event=pr
+            ${{ env.TAGS_CONFIG }}
           labels: |
             ${{ inputs.labels }}        
 
