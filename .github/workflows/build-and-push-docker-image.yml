@@ -176,6 +176,7 @@ jobs:
           echo "TAGS_CONFIG<<EOF" >> $GITHUB_ENV
           
           # Default tagging configuration
+          echo "type=raw,value=latest,enable={{is_default_branch}}" >> $GITHUB_ENV
           echo "type=ref,event=branch" >> $GITHUB_ENV
           echo "type=ref,event=pr" >> $GITHUB_ENV
           
