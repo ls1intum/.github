@@ -1,6 +1,14 @@
 # 🎨 UI Design Recommendation for AET Web Apps  
 
-Creating a **consistent and user-friendly design** is essential for our web apps at AET. Below are the recommended **UI guidelines** to ensure consistent design and a smooth user experience.  
+## 🎯 Why is this Important?  
+
+- 🧭 **Easier Navigation** – Users can quickly find what they need without confusion.  
+- 🔍 **Instant Recognition** – A consistent design helps users immediately recognize they are on an AET platform.  
+- ⚡ **Improved Efficiency** – Familiar layouts and interactions reduce cognitive load, making tasks faster and more intuitive.  
+- 🎯 **Professional & Trustworthy** – A polished, cohesive UI reinforces credibility and trust in our applications.  
+- 📱 **Seamless Multi-App Experience** – Users moving between AET apps experience a unified interface, reducing friction.  
+
+By following these guidelines, we create a **seamless and enjoyable experience** for all users. 🚀  
 
 ## 🏠 Landing Page  
 - **Features & FAQs** should be prominently displayed to help new users understand what the app is used for 
@@ -15,11 +23,12 @@ Creating a **consistent and user-friendly design** is essential for our web apps
 
 ## Header Design  
 - Should include:
-    - **App Name**
+    - **App Name with Version Number**
     - **Dark Mode Toggle 🌙/☀️**
     - **Login Button**
 - Should be about **40px in height**.  
-- **Non-sticky**: The header should **not** remain fixed while scrolling.  
+- **Non-sticky**: The header should **not** remain fixed while scrolling.
+- Should make use of the **primary color theme**.
 
 <details>
 <summary>Example</summary>
@@ -31,8 +40,8 @@ Creating a **consistent and user-friendly design** is essential for our web apps
 - Should include:  
   - **"Built by"** attribution 👨‍💻  
   - **About & Legal pages** 📜  
-  - **Version number** 🛠️  
   - **Bug report / feature request link** 🐞 
+- **Non-sticky**: The footer should **not** remain fixed while scrolling.  
 
 <details>
 <summary>Example</summary>
@@ -56,6 +65,9 @@ Creating a **consistent and user-friendly design** is essential for our web apps
 - **Project context** should be displayed at the **top** of the sidebar.
 - Items in the sidebar should contain a **icon** and a **short text**
 - Sidebar should be **collapsible & expandable** via a **prominent chevron icon**.
+- On mobile devices:
+    - there should be a **sidebar icon or burger menu icon** on the far left of the header to expand the sidebar.
+    - the sidebar should be hidden by default.
 
 <details>
 <summary>Example</summary>
@@ -86,6 +98,18 @@ Thanks for following these recommendations, with that we ensure a **modern, acce
 
 ![Login](design_screenshots/about.png)
 </details> 
+
+## Color Theme
+As primary colors, please use the following color gradiations:
+- 100: `#D7E4F4` 
+- 200: `#C2D7EF`
+- 300: `#9ABCE4`
+- 400: `#5E94D4`
+- 500 (primary color): `#3070B3`
+- 600: `#14519A`
+- 700: `#114584`
+- 800: `#0E396E`
+- 900: `#0A2D57`
 
 # Further Ideas to Improve UI Design@AET
 - Add keycloakify project for AET that is included by different projects
