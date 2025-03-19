@@ -49,9 +49,9 @@ By following these guidelines, we create a **seamless and enjoyable experience**
 ![Footer Design](design_screenshots/footer.png)
 </details> 
 
-## 📂 Project Page  
-- **Projects should be displayed as cards** instead of a list for better **visual clarity**. The cards should include the **title of the project** as well as **most relevant information about the project**
-- **No sidebar** should be used on the **main project page**.  
+## 📂 Project/Course Page  
+- **Projects/Courses should be displayed as cards** instead of a list for better **visual clarity**. The cards should include the **title of the project/course** as well as **most relevant information about the project/course**
+- **No sidebar** should be used on the **main project/course page**.  
 
 <details>
 <summary>Example</summary>
