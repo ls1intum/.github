@@ -22,12 +22,11 @@ By following these guidelines, we create a **seamless and enjoyable experience**
 </details>
 
 ## Header Design  
-- Should include:
+- Should include (in this order):
     - **App Name with Version Number**
     - **Dark Mode Toggle 🌙/☀️**
     - **Login Button**
-- Should be about **40px in height**.  
-- **Non-sticky**: The header should **not** remain fixed while scrolling.
+- Should be max. **3.75rem in height**.  
 - Should make use of the **primary color theme**.
 
 <details>
@@ -60,11 +59,12 @@ By following these guidelines, we create a **seamless and enjoyable experience**
 </details> 
 
 ## ⏩ Sidebar Navigation  
-- **Used for switching different in-project contexts** but **not for switching between projects**.  
-- **Project settings** should be placed **at the bottom** of the sidebar.  
-- **Project context** should be displayed at the **top** of the sidebar.
+- **Project context** should be displayed at the **top** of the sidebar, which can be used to quickly switch projects.
+- The other items should only be **used for switching different in-project contexts** but **not for switching between projects**.
+- **Project settings** should be placed **at the bottom** of the sidebar with a divider above.  
 - Items in the sidebar should contain a **icon** and a **short text**
 - Sidebar should be **collapsible & expandable** via a **prominent chevron icon**.
+- Should make use of the **primary color theme** or be at least visually highlighted.
 - On mobile devices:
     - there should be a **sidebar icon or burger menu icon** on the far left of the header to expand the sidebar.
     - the sidebar should be hidden by default.
