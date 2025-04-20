@@ -100,16 +100,7 @@ Thanks for following these recommendations, with that we ensure a **modern, acce
 </details> 
 
 ## Color Theme
-As primary colors, please use the following color gradiations:
-- 100: `#D7E4F4` 
-- 200: `#C2D7EF`
-- 300: `#9ABCE4`
-- 400: `#5E94D4`
-- 500 (primary color): `#3070B3`
-- 600: `#14519A`
-- 700: `#114584`
-- 800: `#0E396E`
-- 900: `#0A2D57`
+We provide a sample theme config file for primeng. It uses a similar color theme as the main TUM website. Please use - if possible - only the provided colors on the page. You can find the config here in the client folder.
 
 # Further Ideas to Improve UI Design@AET
 - Add keycloakify project for AET that is included by different projects
