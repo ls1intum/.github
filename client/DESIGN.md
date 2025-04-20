@@ -100,7 +100,7 @@ Thanks for following these recommendations, with that we ensure a **modern, acce
 </details> 
 
 ## Color Theme
-We provide a sample theme config file for primeng. It uses a similar color theme as the main TUM website. Please use - if possible - only the provided colors on the page. You can find the config here in the client folder.
+We provide a sample theme config file for primeng. It uses a similar color theme as the main TUM website. Please use - if possible - only the provided colors on the page. You can find the config here in the client folder. This file is amending the Aura preset from PrimeNG, that you can find here: https://github.com/primefaces/primeng/tree/master/packages/themes/src/presets/aura
 
 # Further Ideas to Improve UI Design@AET
 - Add keycloakify project for AET that is included by different projects
