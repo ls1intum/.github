@@ -23,7 +23,7 @@ By following these guidelines, we create a **seamless and enjoyable experience**
 
 ## Header Design  
 - Should include (in this order):
-    - **App Name with Version Number**
+    - **App Name**
     - **Dark Mode Toggle 🌙/☀️**
     - **Login Button**
 - Should be max. **3.75rem in height**.  
@@ -39,6 +39,7 @@ By following these guidelines, we create a **seamless and enjoyable experience**
 - Should include:  
   - **"Built by"** attribution 👨‍💻  
   - **About & Legal pages** 📜  
+  - **Commit Sha and version** of deployed app
   - **Bug report / feature request link** 🐞 
 - **Non-sticky**: The footer should **not** remain fixed while scrolling.  
 
