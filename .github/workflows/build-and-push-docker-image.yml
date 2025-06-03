@@ -57,7 +57,7 @@ on:
 
 jobs:
   build:
-    name: Build Docker Image for ${{ inputs.image-name }}
+    name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: false
       matrix:
