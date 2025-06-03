@@ -111,6 +111,9 @@ jobs:
 > pam_access(su:session): access denied for user `github_deployment' from `pts/…'
 > ```
 > then PAM is blocking `github_deployment` because of an `/etc/security/access.conf` rule. Some VMs ship with this file empty (no restrictions), while others have existing allow/deny rules—either way, you need to ensure there is a `+` line permitting our deployment user before any `deny all`.
+> 
+> > ⚠️ **Warning:** Following the steps below introduces security risks, since it grants the deployment user broad access to the system. You should carefully consider the implications and, if possible, restrict `github_deployment` to only the specific commands or directories it truly needs.
+> 
 > - Open `/etc/security/access.conf` (as root):
 > ```bash
 > sudo vi /etc/security/access.conf
