@@ -98,6 +98,52 @@ jobs:
 4. Add `github_deployment` to the docker group: `sudo usermod -aG docker github_deployment`
 5. Create the deployment directory `/opt/github` and give `github_deployment` access: `sudo mkdir /opt/github && sudo chown github_deployment:github_deployment /opt/github`
 6. Switch to `github_deployment` user: `sudo su github_deployment`
+> <details>
+> <summary>Note on fixing “access denied” when switching to deployment user</summary>
+>
+> If, when you run:
+> ```bash
+> sudo su github_deployment
+> ```
+> you see an error like:
+> ```bash
+> su: cannot open session: Permission denied
+> pam_access(su:session): access denied for user `github_deployment' from `pts/…'
+> ```
+> then PAM is blocking `github_deployment` because of an `/etc/security/access.conf` rule. Some VMs ship with this file empty (no restrictions), while others have existing allow/deny rules—either way, you need to ensure there is a `+` line permitting our deployment user before any `deny all`.
+> 
+> > ⚠️ **Warning:** Following the steps below introduces security risks, since it grants the deployment user broad access to the system. You should carefully consider the implications and, if possible, restrict `github_deployment` to only the specific commands or directories it truly needs.
+> 
+> - Open `/etc/security/access.conf` (as root):
+> ```bash
+> sudo vi /etc/security/access.conf
+> ```
+> - Add the following line:
+> ```bash
+> # Allow github_deployment user to access the system
+> +:github_deployment : ALL
+> ```
+> - The file should look like this:
+> ```bash
+> # login restriction for pam_access
+> # ldap admin/user group login
+> +:(asevm90-admin) (asevm90-user):ALL
+> # allow local root user and root/login group logins
+> +:root (login) (root):ALL
+> # Allow github_deployment user to login
+> +:github_deployment : ALL
+> # deny rest
+> -:ALL:ALL
+> ```
+> - Save and exit.
+> - Retry
+> ```bash
+> sudo su github_deployment
+> ```
+>   
+>
+> </details>
+
 7. Generate a new SSH key on VM: `ssh-keygen -t ed25519 -C "github_deployment@<VMHost>"`, leave passphrase empty
 8. Copy the public key to the authorized keys: `cat /home/github_deployment/.ssh/id_ed25519.pub > /home/github_deployment/.ssh/authorized_keys`
 9. Copy the private key to your clipboard: `cat /home/github_deployment/.ssh/id_ed25519`
