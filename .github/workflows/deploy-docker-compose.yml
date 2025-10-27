@@ -120,7 +120,7 @@ jobs:
         shell: bash
 
       - name: SSH to VM and execute docker compose down (if exists)
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
@@ -214,7 +214,7 @@ jobs:
           target: ${{ inputs.deployment-base-path }}
 
       - name: SSH to VM and execute docker compose up
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ vars.VM_HOST }}
           username: ${{ vars.VM_USERNAME }}
