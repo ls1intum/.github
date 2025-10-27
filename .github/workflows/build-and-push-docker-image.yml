@@ -70,12 +70,12 @@ jobs:
     steps:
       # Git Checkout
       - name: Git Checkout (specific ref)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: ${{ inputs.ref != '' }}
         with:
           ref: ${{ inputs.ref }}
       - name: Git Checkout (default)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         if: ${{ inputs.ref == '' }}
         with:
           fetch-depth: 1
