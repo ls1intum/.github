@@ -107,7 +107,7 @@ jobs:
       name: ${{ inputs.environment }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Extract basename of docker-compose-file
         id: extract-basename
