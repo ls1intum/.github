@@ -68,6 +68,10 @@ on:
         type: string
         default: ''
         description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
+      docker-secrets:
+        type: string
+        default: ''
+        description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=${{ secrets.SECRET_VALUE }}')"
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -190,6 +194,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
           cache-to: ${{ inputs.cache-to }}
+          secrets: ${{ inputs.docker-secrets }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Build and push Docker Image (single-platform)
@@ -206,6 +211,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
           cache-to: ${{ inputs.cache-to }}
+          secrets: ${{ inputs.docker-secrets }}
           push: true
 
       - name: Output image tag (single-platform)
