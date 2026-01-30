@@ -200,7 +200,6 @@ jobs:
           mkdir -p "${CONTEXT_DIR}/.docker-build-config"
           cat > "${CONTEXT_DIR}/.docker-build-config/01proxy" << EOF
           Acquire::http::Proxy "${PROXY_URL}";
-          Acquire::https::Proxy "DIRECT";
           EOF
           
           echo "Injected apt proxy config pointing to: ${PROXY_URL}"
