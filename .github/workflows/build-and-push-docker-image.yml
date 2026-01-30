@@ -178,26 +178,27 @@ jobs:
         with:
           driver-opts: "network=${{ inputs.network }}"
 
-      - name: Prepare build args
-        id: build-args
+      - name: Inject npm/yarn registry config (cluster cache)
+        if: ${{ inputs.use-cluster-cache }}
         run: |
-          # Start with user-provided build args
-          BUILD_ARGS="${{ inputs.build-args }}"
+          # Inject registry config files into build context
+          # These are automatically read by npm/yarn - no Dockerfile changes needed
+          CONTEXT_DIR="${{ inputs.docker-context }}"
+          REGISTRY_URL="http://verdaccio.verdaccio.svc.cluster.local:4873"
           
-          # Add NPM_REGISTRY when using cluster cache
-          if [[ "${{ inputs.use-cluster-cache }}" == "true" ]]; then
-            if [[ -n "$BUILD_ARGS" ]]; then
-              BUILD_ARGS="${BUILD_ARGS}
-          NPM_REGISTRY=http://verdaccio.verdaccio.svc.cluster.local:4873"
-            else
-              BUILD_ARGS="NPM_REGISTRY=http://verdaccio.verdaccio.svc.cluster.local:4873"
-            fi
+          # .npmrc for npm and yarn classic
+          echo "registry=${REGISTRY_URL}" > "${CONTEXT_DIR}/.npmrc"
+          
+          # .yarnrc for yarn classic (v1)
+          echo "registry \"${REGISTRY_URL}\"" > "${CONTEXT_DIR}/.yarnrc"
+          
+          # .yarnrc.yml for yarn berry (v2+) - only if it doesn't exist
+          # (existing .yarnrc.yml likely has project-specific config)
+          if [[ ! -f "${CONTEXT_DIR}/.yarnrc.yml" ]]; then
+            echo "npmRegistryServer: \"${REGISTRY_URL}\"" > "${CONTEXT_DIR}/.yarnrc.yml"
           fi
           
-          # Output using heredoc for multiline support
-          echo "args<<EOF" >> $GITHUB_OUTPUT
-          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Injected registry config pointing to Verdaccio cache"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -226,7 +227,7 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ steps.build-args.outputs.args }}
+          build-args: ${{ inputs.build-args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
@@ -243,7 +244,7 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ steps.build-args.outputs.args }}
+          build-args: ${{ inputs.build-args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
