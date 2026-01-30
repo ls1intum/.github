@@ -82,7 +82,7 @@ jobs:
             runner: ${{ inputs.runner-amd64 }}
           - platform: linux/arm64
             runner: ${{ inputs.runner-arm64 }}
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       # Git Checkout
       - name: Git Checkout (specific ref)
@@ -163,7 +163,7 @@ jobs:
           retention-days: 1
 
   merge:
-    runs-on: ${{ inputs.runner-amd64 }}
+    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
