@@ -52,8 +52,17 @@ on:
         type: string
         default: ubuntu-24.04-arm
         description: "Runner to use for linux/arm64 builds"
+      build-amd64:
+        type: boolean
+        default: true
+        description: "Enable linux/amd64 build"
+      build-arm64:
+        type: boolean
+        default: true
+        description: "Enable linux/arm64 build"
       cache-from:
         type: string
+
         default: ''
         description: "List of external cache sources for buildx (e.g., type=registry,ref=...)"
       cache-to:
@@ -77,14 +86,20 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+            enabled: ${{ inputs.build-amd64 }}
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            enabled: ${{ inputs.build-arm64 }}
     runs-on: ${{ matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64 }}
     steps:
       # Git Checkout
-      - name: Git Checkout (specific ref)
+      - name: Checkout
+        if: ${{ matrix.enabled }}
         uses: actions/checkout@v6
+
         if: ${{ inputs.ref != '' }}
         with:
           ref: ${{ inputs.ref }}
@@ -126,6 +141,9 @@ jobs:
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
+          # When skip-merge is enabled, we push the image manifest directly to the registry
+          # The caller is responsible for ensuring tags are unique per platform (e.g. by appending -amd64)
+          # Otherwise they will overwrite each other.
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
@@ -133,7 +151,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
           cache-to: ${{ inputs.cache-to }}
-          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+          # Push immediately if skipping merge, otherwise push by digest
+          outputs: ${{ inputs.skip-merge && 'type=image,push=true' || format('type=image,"name={0}/{1}",push-by-digest=true,name-canonical=true,push=true', inputs.registry, inputs.image-name) }}
 
       - name: Prepare
         run: |
@@ -158,6 +177,7 @@ jobs:
 
   merge:
     runs-on: ubuntu-latest
+    if: ${{ !inputs.skip-merge }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
