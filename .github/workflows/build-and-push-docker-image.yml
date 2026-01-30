@@ -52,6 +52,10 @@ on:
         type: string
         default: ubuntu-24.04-arm
         description: "Runner to use for linux/arm64 builds"
+      runner-merge:
+        type: string
+        default: ubuntu-latest
+        description: "Runner to use for the merge job (default: ubuntu-latest)"
       # Registry mirror configuration (for self-hosted runners with caching proxies)
       docker-hub-mirror:
         type: string
@@ -69,6 +73,10 @@ on:
         type: string
         default: ''
         description: "Apt-Cacher-NG proxy URL (e.g., http://apt-cacher-ng:3142). Injects apt proxy config into build context."
+      https-proxy:
+        type: string
+        default: ''
+        description: "HTTPS proxy URL for extension/artifact downloads (e.g., http://squid:3128). Sets HTTPS_PROXY during build."
       cache-from:
         type: string
         default: ''
@@ -206,6 +214,15 @@ jobs:
             echo "Added APT_HTTP_PROXY build-arg"
           fi
           
+          # Add https-proxy as build-arg if provided
+          if [[ -n "${{ inputs.https-proxy }}" ]]; then
+            BUILD_ARGS="$BUILD_ARGS"$'\n'"HTTPS_PROXY=${{ inputs.https-proxy }}"
+            BUILD_ARGS="$BUILD_ARGS"$'\n'"https_proxy=${{ inputs.https-proxy }}"
+            BUILD_ARGS="$BUILD_ARGS"$'\n'"HTTP_PROXY=${{ inputs.https-proxy }}"
+            BUILD_ARGS="$BUILD_ARGS"$'\n'"http_proxy=${{ inputs.https-proxy }}"
+            echo "Added HTTPS_PROXY/HTTP_PROXY build-args"
+          fi
+          
           echo "build-args<<EOF" >> $GITHUB_OUTPUT
           echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -290,7 +307,7 @@ jobs:
           retention-days: 1
 
   merge:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner-amd64 }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
