@@ -65,6 +65,10 @@ on:
         type: string
         default: ''
         description: "NPM/Yarn registry URL (e.g., http://verdaccio:4873). Injects .npmrc/.yarnrc into build context."
+      apt-proxy:
+        type: string
+        default: ''
+        description: "Apt-Cacher-NG proxy URL (e.g., http://apt-cacher-ng:3142). Injects apt proxy config into build context."
       cache-from:
         type: string
         default: ''
@@ -177,6 +181,21 @@ jobs:
           fi
           
           echo "Injected registry config pointing to: ${REGISTRY_URL}"
+
+      - name: Inject apt proxy config
+        if: ${{ inputs.apt-proxy != '' }}
+        run: |
+          CONTEXT_DIR="${{ inputs.docker-context }}"
+          PROXY_URL="${{ inputs.apt-proxy }}"
+          
+          mkdir -p "${CONTEXT_DIR}/.docker-build-config"
+          cat > "${CONTEXT_DIR}/.docker-build-config/01proxy" << EOF
+          Acquire::http::Proxy "${PROXY_URL}";
+          Acquire::https::Proxy "DIRECT";
+          EOF
+          
+          echo "Injected apt proxy config pointing to: ${PROXY_URL}"
+          echo "Note: Dockerfile must COPY .docker-build-config/01proxy /etc/apt/apt.conf.d/ before apt commands"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
