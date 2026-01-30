@@ -96,7 +96,7 @@ jobs:
 2. Create new user called `github_deployment` with: `sudo adduser github_deployment --disabled-password`, you can leave all fields empty
 3. Check if docker is installed: `sudo docker info`, if not install with [these instructions](https://docs.docker.com/engine/install/ubuntu/#installation-methods)
 4. Add `github_deployment` to the docker group: `sudo usermod -aG docker github_deployment`
-5. Create the deployment directory `/opt/github` and give `github_deployment` access: `sudo mkdir /opt/github && sudo chown github_deployment:github_deployment /opt/github`
+5. Create the deployment directory `/opt/<project-name>` and give `github_deployment` access: `sudo mkdir /opt/<project-name> && sudo chown github_deployment:github_deployment /opt/<project-name>`
 6. Switch to `github_deployment` user: `sudo su github_deployment`
 > <details>
 > <summary>Note on fixing “access denied” when switching to deployment user</summary>
