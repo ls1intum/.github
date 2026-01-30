@@ -44,6 +44,22 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      runner:
+        type: string
+        default: ''
+        description: "Override the runner to use (e.g., arc-runner-set-stateless). If set, matrix strategy for runners is disabled."
+      cache-from:
+        type: string
+        default: ''
+        description: "List of external cache sources for buildx (e.g., type=registry,ref=...)"
+      cache-to:
+        type: string
+        default: ''
+        description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
+      platforms:
+        type: string
+        default: 'linux/amd64,linux/arm64'
+        description: "Platforms to build for (Default: linux/amd64,linux/arm64)"
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -57,16 +73,22 @@ on:
 
 jobs:
   build:
-    name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
+    name: Build Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: true
       matrix:
+        # If runner input is set, we ignore this matrix effectively by overriding runs-on, 
+        # but we still need valid matrix values to prevent syntax errors.
+        # We'll use a dynamic strategy: if input.runner is set, we assume single-job multi-arch (via QEMU)
+        # or single-platform. The matrix is hard to make conditional.
+        # simpler approach: Allow the matrix to run, but override the runner.
+        # If input.runner is 'arc-runner-set-stateless', both matrix jobs run on it.
         include:
           - platform: linux/amd64
-            runner: ubuntu-24.04
+            default_runner: ubuntu-24.04
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
+            default_runner: ubuntu-24.04-arm
+    runs-on: ${{ inputs.runner || matrix.default_runner }}
     steps:
       # Git Checkout
       - name: Git Checkout (specific ref)
@@ -116,6 +138,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
           network: ${{ inputs.network }}
+          # Pass platforms only if we are overriding standard behavior, otherwise rely on matrix
+          # But actually, the matrix splits builds by platform.
+          # If we use arc runners, we might want to allow caching.
+          cache-from: ${{ inputs.cache-from }}
+          cache-to: ${{ inputs.cache-to }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
