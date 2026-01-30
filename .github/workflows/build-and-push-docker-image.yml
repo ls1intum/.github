@@ -68,6 +68,14 @@ on:
         type: string
         default: ''
         description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
+      registry-mirror:
+        type: string
+        description: "URL of a registry mirror to use (e.g. http://harbor...)"
+        required: false
+      registry-insecure:
+        type: boolean
+        description: "Trust the registry mirror as insecure (HTTP)"
+        default: false
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -159,7 +167,9 @@ jobs:
           driver-opts: "network=${{ inputs.network }}"
           buildkitd-config-inline: |
             [registry."docker.io"]
-              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
+              mirrors = ["${{ inputs.registry-mirror || 'https://docker-mirror.ase.in.tum.de:8765' }}"]
+              http = ${{ inputs.registry-insecure }}
+              insecure = ${{ inputs.registry-insecure }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
