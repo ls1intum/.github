@@ -52,17 +52,8 @@ on:
         type: string
         default: ubuntu-24.04-arm
         description: "Runner to use for linux/arm64 builds"
-      build-amd64:
-        type: boolean
-        default: true
-        description: "Enable linux/amd64 build"
-      build-arm64:
-        type: boolean
-        default: true
-        description: "Enable linux/arm64 build"
       cache-from:
         type: string
-
         default: ''
         description: "List of external cache sources for buildx (e.g., type=registry,ref=...)"
       cache-to:
@@ -81,44 +72,24 @@ on:
         required: false
 
 jobs:
-  setup:
-    runs-on: ${{ inputs.runner-amd64 }}
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - id: set-matrix
-        run: |
-          # Build dynamic matrix JSON
-          matrix_json="{\"include\": ["
-          
-          if [ "${{ inputs.build-amd64 }}" == "true" ]; then
-            matrix_json="${matrix_json} {\"platform\": \"linux/amd64\", \"runner\": \"ubuntu-24.04\"},"
-          fi
-          
-          if [ "${{ inputs.build-arm64 }}" == "true" ]; then
-            matrix_json="${matrix_json} {\"platform\": \"linux/arm64\", \"runner\": \"ubuntu-24.04-arm\"},"
-          fi
-          
-          # Remove trailing comma and close JSON
-          matrix_json="${matrix_json%,}]}"
-          
-          echo "matrix=${matrix_json}" >> $GITHUB_OUTPUT
-
   build:
-    needs: setup
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: true
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
-    runs-on: ${{ matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64 }}
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ${{ inputs.runner-amd64 }}
+          - platform: linux/arm64
+            runner: ${{ inputs.runner-arm64 }}
+    runs-on: ${{ matrix.runner }}
     steps:
       # Git Checkout
-      - name: Checkout
-        if: ${{ inputs.ref != '' }}
+      - name: Git Checkout (specific ref)
         uses: actions/checkout@v6
+        if: ${{ inputs.ref != '' }}
         with:
           ref: ${{ inputs.ref }}
-
       - name: Git Checkout (default)
         uses: actions/checkout@v6
         if: ${{ inputs.ref == '' }}
@@ -168,7 +139,7 @@ jobs:
           cache-from: ${{ inputs.cache-from }}
           cache-to: ${{ inputs.cache-to }}
           # Push immediately if skipping merge, otherwise push by digest
-          outputs: ${{ inputs.skip-merge && 'type=image,push=true' || format('type=image,"name={0}/{1}",push-by-digest=true,name-canonical=true,push=true', inputs.registry, inputs.image-name) }}
+          outputs: format('type=image,"name={0}/{1}",push-by-digest=true,name-canonical=true,push=true', inputs.registry, inputs.image-name)
 
       - name: Prepare
         run: |
@@ -193,7 +164,6 @@ jobs:
 
   merge:
     runs-on: ${{ inputs.runner-amd64 }}
-    if: ${{ !inputs.skip-merge }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
