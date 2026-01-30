@@ -219,6 +219,35 @@ jobs:
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
 
+      - name: Prepare Cache Config
+        id: cache-config
+        run: |
+          # Sanitize platform name for use in tag (e.g. linux/amd64 -> linux-amd64)
+          PLATFORM_SLUG=${{ matrix.platform }}
+          PLATFORM_SLUG=${PLATFORM_SLUG//\//-}
+          
+          # Process cache-to
+          CACHE_TO="${{ inputs.cache-to }}"
+          if [[ -n "$CACHE_TO" ]]; then
+            # Append platform slug to any ref= value
+            CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+          fi
+          
+          # Process cache-from
+          CACHE_FROM="${{ inputs.cache-from }}"
+           if [[ -n "$CACHE_FROM" ]]; then
+            # Append platform slug to any ref= value
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+          fi
+          
+          echo "cache-to<<EOF" >> $GITHUB_OUTPUT
+          echo "$CACHE_TO" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "cache-from<<EOF" >> $GITHUB_OUTPUT
+          echo "$CACHE_FROM" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker Image
         id: build
         uses: docker/build-push-action@v6
@@ -230,8 +259,8 @@ jobs:
           build-args: ${{ inputs.build-args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
-          cache-from: ${{ inputs.cache-from }}
-          cache-to: ${{ inputs.cache-to }}
+          cache-from: ${{ steps.cache-config.outputs.cache-from }}
+          cache-to: ${{ steps.cache-config.outputs.cache-to }}
           secrets: ${{ secrets.docker-secrets }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
