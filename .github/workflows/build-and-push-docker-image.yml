@@ -60,6 +60,10 @@ on:
         type: string
         default: ubuntu-24.04-arm
         description: "Runner to use for linux/arm64 builds"
+      use-cluster-cache:
+        type: boolean
+        default: false
+        description: "Use cluster-internal registry mirrors (for self-hosted runners only)"
       cache-from:
         type: string
         default: ''
@@ -68,14 +72,6 @@ on:
         type: string
         default: ''
         description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
-      registry-mirror:
-        type: string
-        description: "URL of a registry mirror to use (e.g. http://harbor...)"
-        required: false
-      registry-insecure:
-        type: boolean
-        description: "Trust the registry mirror as insecure (HTTP)"
-        default: false
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -161,15 +157,26 @@ jobs:
         with:
           platforms: all
   
-      - name: Install Docker Buildx
+      - name: Install Docker Buildx (with cluster cache)
+        if: ${{ inputs.use-cluster-cache }}
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
           buildkitd-config-inline: |
             [registry."docker.io"]
-              mirrors = ["${{ inputs.registry-mirror || 'https://docker-mirror.ase.in.tum.de:8765' }}"]
-              http = ${{ inputs.registry-insecure }}
-              insecure = ${{ inputs.registry-insecure }}
+              mirrors = ["http://registry-mirror.registry-mirror.svc.cluster.local:5000"]
+              http = true
+              insecure = true
+            [registry."ghcr.io"]
+              mirrors = ["http://registry-mirror-ghcr.registry-mirror.svc.cluster.local:5000"]
+              http = true
+              insecure = true
+
+      - name: Install Docker Buildx (standard)
+        if: ${{ !inputs.use-cluster-cache }}
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: "network=${{ inputs.network }}"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
