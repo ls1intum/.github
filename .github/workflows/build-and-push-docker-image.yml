@@ -81,30 +81,47 @@ on:
         required: false
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          # Build dynamic matrix JSON
+          matrix_json="{\"include\": ["
+          
+          if [ "${{ inputs.build-amd64 }}" == "true" ]; then
+            matrix_json="${matrix_json} {\"platform\": \"linux/amd64\", \"runner\": \"ubuntu-24.04\"},"
+          fi
+          
+          if [ "${{ inputs.build-arm64 }}" == "true" ]; then
+            matrix_json="${matrix_json} {\"platform\": \"linux/arm64\", \"runner\": \"ubuntu-24.04-arm\"},"
+          fi
+          
+          # Remove trailing comma and close JSON
+          matrix_json="${matrix_json%,}]}"
+          
+          echo "matrix=${matrix_json}" >> $GITHUB_OUTPUT
+
   build:
+    needs: setup
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-            enabled: ${{ inputs.build-amd64 }}
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-            enabled: ${{ inputs.build-arm64 }}
-    runs-on: ${{ matrix.enabled && (matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64) || 'ubuntu-latest' }}
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+    runs-on: ${{ matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64 }}
     steps:
       # Git Checkout
       - name: Checkout
-        if: ${{ matrix.enabled && inputs.ref != '' }}
+        if: ${{ inputs.ref != '' }}
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref }}
 
       - name: Git Checkout (default)
         uses: actions/checkout@v6
-        if: ${{ matrix.enabled && inputs.ref == '' }}
+        if: ${{ inputs.ref == '' }}
         with:
           fetch-depth: 1
 
