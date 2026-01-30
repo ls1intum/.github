@@ -44,6 +44,14 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      build-amd64:
+        type: boolean
+        default: true
+        description: "Enable linux/amd64 build (Default: true)"
+      build-arm64:
+        type: boolean
+        default: true
+        description: "Enable linux/arm64 build (Default: true)"
       runner-amd64:
         type: string
         default: ubuntu-24.04
@@ -63,7 +71,7 @@ on:
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
-        value: ${{ jobs.merge.outputs.image_tag }}
+        value: ${{ jobs.merge.outputs.image_tag || jobs.build.outputs.image_tag }}
     
     secrets:
       registry-user:
@@ -72,17 +80,58 @@ on:
         required: false
 
 jobs:
+  # Generate dynamic matrix based on enabled platforms
+  setup:
+    name: Setup Build Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      multi-platform: ${{ steps.set-matrix.outputs.multi-platform }}
+    steps:
+      - name: Generate matrix
+        id: set-matrix
+        run: |
+          # Build the matrix JSON dynamically
+          MATRIX='{"include":['
+          FIRST=true
+          COUNT=0
+          
+          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
+            MATRIX="${MATRIX}{\"platform\":\"linux/amd64\",\"runner\":\"${{ inputs.runner-amd64 }}\"}"
+            FIRST=false
+            COUNT=$((COUNT + 1))
+          fi
+          
+          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
+            if [[ "$FIRST" == "false" ]]; then
+              MATRIX="${MATRIX},"
+            fi
+            MATRIX="${MATRIX}{\"platform\":\"linux/arm64\",\"runner\":\"${{ inputs.runner-arm64 }}\"}"
+            COUNT=$((COUNT + 1))
+          fi
+          
+          MATRIX="${MATRIX}]}"
+          
+          echo "Generated matrix: $MATRIX"
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          
+          # Determine if this is a multi-platform build (for merge job)
+          if [[ $COUNT -gt 1 ]]; then
+            echo "multi-platform=true" >> $GITHUB_OUTPUT
+          else
+            echo "multi-platform=false" >> $GITHUB_OUTPUT
+          fi
+
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
+    needs: setup
+    if: ${{ inputs.build-amd64 || inputs.build-arm64 }}
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ${{ inputs.runner-amd64 }}
-          - platform: linux/arm64
-            runner: ${{ inputs.runner-arm64 }}
+      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
+    outputs:
+      image_tag: ${{ steps.output-single-tag.outputs.image_tag }}
     steps:
       # Git Checkout
       - name: Git Checkout (specific ref)
@@ -121,16 +170,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=pr
+            ${{ inputs.tags }}
 
-      - name: Build and push Docker Image
-        id: build
+      - name: Build and push Docker Image (multi-platform)
+        id: build-multi
+        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
-          # When skip-merge is enabled, we push the image manifest directly to the registry
-          # The caller is responsible for ensuring tags are unique per platform (e.g. by appending -amd64)
-          # Otherwise they will overwrite each other.
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ inputs.build-args }}
@@ -138,23 +190,47 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
           cache-to: ${{ inputs.cache-to }}
-          # Push immediately if skipping merge, otherwise push by digest
-          outputs: format('type=image,"name={0}/{1}",push-by-digest=true,name-canonical=true,push=true', inputs.registry, inputs.image-name)
+          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Build and push Docker Image (single-platform)
+        id: build-single
+        if: ${{ needs.setup.outputs.multi-platform == 'false' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.docker-file }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ inputs.build-args }}
+          network: ${{ inputs.network }}
+          platforms: ${{ matrix.platform }}
+          cache-from: ${{ inputs.cache-from }}
+          cache-to: ${{ inputs.cache-to }}
+          push: true
+
+      - name: Output image tag (single-platform)
+        id: output-single-tag
+        if: ${{ needs.setup.outputs.multi-platform == 'false' }}
+        run: |
+          echo "image_tag=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare
+        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         run: |
           platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=${platform//\\//-}" >> $GITHUB_ENV
           image="${{ inputs.image-name }}"
-          echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${image//\\//-}" >> $GITHUB_ENV
 
       - name: Export digest
+        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         run: |
           mkdir -p ${{ runner.temp }}/digests
-          digest="${{ steps.build.outputs.digest }}"
+          digest="${{ steps.build-multi.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"          
   
       - name: Upload digest
+        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         uses: actions/upload-artifact@v5
         with:
           name: digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
@@ -164,9 +240,11 @@ jobs:
 
   merge:
     runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
+    if: ${{ needs.setup.outputs.multi-platform == 'true' }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
+      - setup
       - build
     steps:
       - name: Prepare
