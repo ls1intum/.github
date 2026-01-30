@@ -44,14 +44,6 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
-      build-amd64:
-        type: boolean
-        default: true
-        description: "Enable linux/amd64 build (Default: true)"
-      build-arm64:
-        type: boolean
-        default: true
-        description: "Enable linux/arm64 build (Default: true)"
       runner-amd64:
         type: string
         default: ubuntu-24.04
@@ -60,10 +52,19 @@ on:
         type: string
         default: ubuntu-24.04-arm
         description: "Runner to use for linux/arm64 builds"
-      use-cluster-cache:
-        type: boolean
-        default: false
-        description: "Use cluster-internal registry mirrors (for self-hosted runners only)"
+      # Registry mirror configuration (for self-hosted runners with caching proxies)
+      docker-hub-mirror:
+        type: string
+        default: ''
+        description: "Mirror URL for Docker Hub (e.g., http://registry-mirror:5000 or https://mirror.example.com)"
+      ghcr-mirror:
+        type: string
+        default: ''
+        description: "Mirror URL for ghcr.io (e.g., http://registry-mirror-ghcr:5000)"
+      npm-registry:
+        type: string
+        default: ''
+        description: "NPM/Yarn registry URL (e.g., http://verdaccio:4873). Injects .npmrc/.yarnrc into build context."
       cache-from:
         type: string
         default: ''
@@ -75,7 +76,7 @@ on:
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
-        value: ${{ jobs.merge.outputs.image_tag || jobs.build.outputs.image_tag }}
+        value: ${{ jobs.merge.outputs.image_tag }}
     
     secrets:
       registry-user:
@@ -87,58 +88,17 @@ on:
         description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
-  # Generate dynamic matrix based on enabled platforms
-  setup:
-    name: Setup Build Matrix
-    runs-on: ${{ inputs.runner-amd64 }}
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      multi-platform: ${{ steps.set-matrix.outputs.multi-platform }}
-    steps:
-      - name: Generate matrix
-        id: set-matrix
-        run: |
-          # Build the matrix JSON dynamically
-          MATRIX='{"include":['
-          FIRST=true
-          COUNT=0
-          
-          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
-            MATRIX="${MATRIX}{\"platform\":\"linux/amd64\",\"runner\":\"${{ inputs.runner-amd64 }}\"}"
-            FIRST=false
-            COUNT=$((COUNT + 1))
-          fi
-          
-          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
-            if [[ "$FIRST" == "false" ]]; then
-              MATRIX="${MATRIX},"
-            fi
-            MATRIX="${MATRIX}{\"platform\":\"linux/arm64\",\"runner\":\"${{ inputs.runner-arm64 }}\"}"
-            COUNT=$((COUNT + 1))
-          fi
-          
-          MATRIX="${MATRIX}]}"
-          
-          echo "Generated matrix: $MATRIX"
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          
-          # Determine if this is a multi-platform build (for merge job)
-          if [[ $COUNT -gt 1 ]]; then
-            echo "multi-platform=true" >> $GITHUB_OUTPUT
-          else
-            echo "multi-platform=false" >> $GITHUB_OUTPUT
-          fi
-
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
-    needs: setup
-    if: ${{ inputs.build-amd64 || inputs.build-arm64 }}
     strategy:
       fail-fast: true
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ${{ inputs.runner-amd64 }}
+          - platform: linux/arm64
+            runner: ${{ inputs.runner-arm64 }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
-    outputs:
-      image_tag: ${{ steps.output-single-tag.outputs.image_tag }}
     steps:
       # Git Checkout
       - name: Git Checkout (specific ref)
@@ -156,35 +116,53 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+
+      - name: Generate BuildKit config
+        id: buildkit-config
+        run: |
+          CONFIG=""
+          
+          # Docker Hub mirror
+          if [[ -n "${{ inputs.docker-hub-mirror }}" ]]; then
+            MIRROR="${{ inputs.docker-hub-mirror }}"
+            CONFIG="${CONFIG}[registry.\"docker.io\"]"$'\n'
+            CONFIG="${CONFIG}  mirrors = [\"${MIRROR}\"]"$'\n'
+            # Enable http/insecure for non-https mirrors
+            if [[ "$MIRROR" == http://* ]]; then
+              CONFIG="${CONFIG}  http = true"$'\n'
+              CONFIG="${CONFIG}  insecure = true"$'\n'
+            fi
+          fi
+          
+          # GHCR mirror
+          if [[ -n "${{ inputs.ghcr-mirror }}" ]]; then
+            MIRROR="${{ inputs.ghcr-mirror }}"
+            CONFIG="${CONFIG}[registry.\"ghcr.io\"]"$'\n'
+            CONFIG="${CONFIG}  mirrors = [\"${MIRROR}\"]"$'\n'
+            if [[ "$MIRROR" == http://* ]]; then
+              CONFIG="${CONFIG}  http = true"$'\n'
+              CONFIG="${CONFIG}  insecure = true"$'\n'
+            fi
+          fi
+          
+          # Output config
+          echo "config<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONFIG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
   
-      - name: Install Docker Buildx (with cluster cache)
-        if: ${{ inputs.use-cluster-cache }}
+      - name: Install Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["http://registry-mirror.registry-mirror.svc.cluster.local:5000"]
-              http = true
-              insecure = true
-            [registry."ghcr.io"]
-              mirrors = ["http://registry-mirror-ghcr.registry-mirror.svc.cluster.local:5000"]
-              http = true
-              insecure = true
+          buildkitd-config-inline: ${{ steps.buildkit-config.outputs.config }}
 
-      - name: Install Docker Buildx (standard)
-        if: ${{ !inputs.use-cluster-cache }}
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: "network=${{ inputs.network }}"
-
-      - name: Inject npm/yarn registry config (cluster cache)
-        if: ${{ inputs.use-cluster-cache }}
+      - name: Inject npm/yarn registry config
+        if: ${{ inputs.npm-registry != '' }}
         run: |
           # Inject registry config files into build context
           # These are automatically read by npm/yarn - no Dockerfile changes needed
           CONTEXT_DIR="${{ inputs.docker-context }}"
-          REGISTRY_URL="http://verdaccio.verdaccio.svc.cluster.local:4873"
+          REGISTRY_URL="${{ inputs.npm-registry }}"
           
           # .npmrc for npm and yarn classic
           echo "registry=${REGISTRY_URL}" > "${CONTEXT_DIR}/.npmrc"
@@ -198,7 +176,7 @@ jobs:
             echo "npmRegistryServer: \"${REGISTRY_URL}\"" > "${CONTEXT_DIR}/.yarnrc.yml"
           fi
           
-          echo "Injected registry config pointing to Verdaccio cache"
+          echo "Injected registry config pointing to: ${REGISTRY_URL}"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -212,15 +190,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=ref,event=pr
-            ${{ inputs.tags }}
 
-      - name: Build and push Docker Image (multi-platform)
-        id: build-multi
-        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
+      - name: Build and push Docker Image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-context }}
@@ -235,31 +207,7 @@ jobs:
           secrets: ${{ secrets.docker-secrets }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
-      - name: Build and push Docker Image (single-platform)
-        id: build-single
-        if: ${{ needs.setup.outputs.multi-platform == 'false' }}
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ inputs.docker-context }}
-          file: ${{ inputs.docker-file }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
-          network: ${{ inputs.network }}
-          platforms: ${{ matrix.platform }}
-          cache-from: ${{ inputs.cache-from }}
-          cache-to: ${{ inputs.cache-to }}
-          secrets: ${{ secrets.docker-secrets }}
-          push: true
-
-      - name: Output image tag (single-platform)
-        id: output-single-tag
-        if: ${{ needs.setup.outputs.multi-platform == 'false' }}
-        run: |
-          echo "image_tag=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
-
       - name: Prepare
-        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
@@ -267,14 +215,12 @@ jobs:
           echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
-        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         run: |
           mkdir -p ${{ runner.temp }}/digests
-          digest="${{ steps.build-multi.outputs.digest }}"
+          digest="${{ steps.build.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"          
   
       - name: Upload digest
-        if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         uses: actions/upload-artifact@v5
         with:
           name: digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
@@ -283,12 +229,10 @@ jobs:
           retention-days: 1
 
   merge:
-    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
-    if: ${{ needs.setup.outputs.multi-platform == 'true' }}
+    runs-on: ubuntu-latest
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
-      - setup
       - build
     steps:
       - name: Prepare
