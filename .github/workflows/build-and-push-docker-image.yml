@@ -178,6 +178,27 @@ jobs:
         with:
           driver-opts: "network=${{ inputs.network }}"
 
+      - name: Prepare build args
+        id: build-args
+        run: |
+          # Start with user-provided build args
+          BUILD_ARGS="${{ inputs.build-args }}"
+          
+          # Add NPM_REGISTRY when using cluster cache
+          if [[ "${{ inputs.use-cluster-cache }}" == "true" ]]; then
+            if [[ -n "$BUILD_ARGS" ]]; then
+              BUILD_ARGS="${BUILD_ARGS}
+          NPM_REGISTRY=http://verdaccio.verdaccio.svc.cluster.local:4873"
+            else
+              BUILD_ARGS="NPM_REGISTRY=http://verdaccio.verdaccio.svc.cluster.local:4873"
+            fi
+          fi
+          
+          # Output using heredoc for multiline support
+          echo "args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -205,7 +226,7 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
+          build-args: ${{ steps.build-args.outputs.args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
@@ -222,7 +243,7 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
+          build-args: ${{ steps.build-args.outputs.args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           cache-from: ${{ inputs.cache-from }}
