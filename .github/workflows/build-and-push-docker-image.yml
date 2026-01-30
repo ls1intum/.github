@@ -126,13 +126,20 @@ jobs:
         run: |
           CONFIG=""
           
+          # Helper to extract host:port from URL
+          extract_host() {
+            echo "$1" | sed -E 's|^https?://||' | sed -E 's|/.*$||'
+          }
+          
           # Docker Hub mirror
           if [[ -n "${{ inputs.docker-hub-mirror }}" ]]; then
             MIRROR="${{ inputs.docker-hub-mirror }}"
+            MIRROR_HOST=$(extract_host "$MIRROR")
             CONFIG="${CONFIG}[registry.\"docker.io\"]"$'\n'
-            CONFIG="${CONFIG}  mirrors = [\"${MIRROR}\"]"$'\n'
-            # Enable http/insecure for non-https mirrors
+            CONFIG="${CONFIG}  mirrors = [\"${MIRROR_HOST}\"]"$'\n'
+            # http/insecure flags go on the MIRROR registry, not docker.io
             if [[ "$MIRROR" == http://* ]]; then
+              CONFIG="${CONFIG}[registry.\"${MIRROR_HOST}\"]"$'\n'
               CONFIG="${CONFIG}  http = true"$'\n'
               CONFIG="${CONFIG}  insecure = true"$'\n'
             fi
@@ -141,9 +148,11 @@ jobs:
           # GHCR mirror
           if [[ -n "${{ inputs.ghcr-mirror }}" ]]; then
             MIRROR="${{ inputs.ghcr-mirror }}"
+            MIRROR_HOST=$(extract_host "$MIRROR")
             CONFIG="${CONFIG}[registry.\"ghcr.io\"]"$'\n'
-            CONFIG="${CONFIG}  mirrors = [\"${MIRROR}\"]"$'\n'
+            CONFIG="${CONFIG}  mirrors = [\"${MIRROR_HOST}\"]"$'\n'
             if [[ "$MIRROR" == http://* ]]; then
+              CONFIG="${CONFIG}[registry.\"${MIRROR_HOST}\"]"$'\n'
               CONFIG="${CONFIG}  http = true"$'\n'
               CONFIG="${CONFIG}  insecure = true"$'\n'
             fi
