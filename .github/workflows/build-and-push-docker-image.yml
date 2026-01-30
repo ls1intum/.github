@@ -223,9 +223,9 @@ jobs:
         if: ${{ needs.setup.outputs.multi-platform == 'true' }}
         run: |
           platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\\//-}" >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
           image="${{ inputs.image-name }}"
-          echo "IMAGE_NAME=${image//\\//-}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
         if: ${{ needs.setup.outputs.multi-platform == 'true' }}
