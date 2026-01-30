@@ -191,19 +191,24 @@ jobs:
           
           echo "Injected registry config pointing to: ${REGISTRY_URL}"
 
-      - name: Inject apt proxy config
-        if: ${{ inputs.apt-proxy != '' }}
+      - name: Prepare build args
+        id: build-args
         run: |
-          CONTEXT_DIR="${{ inputs.docker-context }}"
-          PROXY_URL="${{ inputs.apt-proxy }}"
+          BUILD_ARGS="${{ inputs.build-args }}"
           
-          mkdir -p "${CONTEXT_DIR}/.docker-build-config"
-          cat > "${CONTEXT_DIR}/.docker-build-config/01proxy" << EOF
-          Acquire::http::Proxy "${PROXY_URL}";
-          EOF
+          # Add apt-proxy as build-arg if provided
+          if [[ -n "${{ inputs.apt-proxy }}" ]]; then
+            if [[ -n "$BUILD_ARGS" ]]; then
+              BUILD_ARGS="$BUILD_ARGS"$'\n'"APT_HTTP_PROXY=${{ inputs.apt-proxy }}"
+            else
+              BUILD_ARGS="APT_HTTP_PROXY=${{ inputs.apt-proxy }}"
+            fi
+            echo "Added APT_HTTP_PROXY build-arg"
+          fi
           
-          echo "Injected apt proxy config pointing to: ${PROXY_URL}"
-          echo "Note: Dockerfile must COPY .docker-build-config/01proxy /etc/apt/apt.conf.d/ before apt commands"
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -255,7 +260,7 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           cache-from: ${{ steps.cache-config.outputs.cache-from }}
