@@ -93,7 +93,7 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             enabled: ${{ inputs.build-arm64 }}
-    runs-on: ${{ matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64 }}
+    runs-on: ${{ matrix.enabled && (matrix.platform == 'linux/amd64' && inputs.runner-amd64 || inputs.runner-arm64) || 'ubuntu-latest' }}
     steps:
       # Git Checkout
       - name: Checkout
