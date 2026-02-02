@@ -250,6 +250,8 @@ jobs:
           # Process cache-to
           CACHE_TO="${{ inputs.cache-to }}"
           if [[ -n "$CACHE_TO" ]]; then
+            # Convert escaped newlines to actual newlines first
+            CACHE_TO=$(echo "$CACHE_TO" | sed 's/\\n/\n/g')
             # Append platform slug to any ref= value
             CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
           fi
@@ -257,6 +259,8 @@ jobs:
           # Process cache-from
           CACHE_FROM="${{ inputs.cache-from }}"
            if [[ -n "$CACHE_FROM" ]]; then
+            # Convert escaped newlines to actual newlines first
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed 's/\\n/\n/g')
             # Append platform slug to any ref= value
             CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
           fi
