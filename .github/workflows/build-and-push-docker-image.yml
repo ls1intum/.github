@@ -180,6 +180,11 @@ jobs:
           echo "type=ref,event=branch" >> $GITHUB_ENV
           echo "type=ref,event=pr" >> $GITHUB_ENV
           
+          # Semantic versioning tags for release events
+          echo "type=semver,pattern={{version}}" >> $GITHUB_ENV
+          echo "type=semver,pattern={{major}}.{{minor}}" >> $GITHUB_ENV
+          echo "type=semver,pattern={{major}}" >> $GITHUB_ENV
+          
           # Check if tags input is provided
           if [ -n "${{ inputs.tags }}" ]; then
             # Process input line by line
