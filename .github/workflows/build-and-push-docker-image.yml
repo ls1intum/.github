@@ -108,19 +108,38 @@ on:
         description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
+  setup-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          MATRIX='{"include":['
+          PLATFORMS=()
+          
+          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/amd64","runner":"${{ inputs.runner-amd64 }}"}')
+          fi
+          
+          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/arm64","runner":"${{ inputs.runner-arm64 }}"}')
+          fi
+          
+          # Join array elements with comma
+          JOINED=$(IFS=,; echo "${PLATFORMS[*]}")
+          MATRIX="${MATRIX}${JOINED}]}"
+          
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "Generated matrix: ${MATRIX}"
+
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
-    if: |
-      (matrix.platform == 'linux/amd64' && inputs.build-amd64) ||
-      (matrix.platform == 'linux/arm64' && inputs.build-arm64)
+    needs: setup-matrix
+    if: needs.setup-matrix.outputs.matrix != '{"include":[]}'
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ${{ inputs.runner-amd64 }}
-          - platform: linux/arm64
-            runner: ${{ inputs.runner-arm64 }}
+      matrix: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       # Git Checkout
@@ -327,6 +346,7 @@ jobs:
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
+      - setup-matrix
       - build
     steps:
       - name: Prepare
