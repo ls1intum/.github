@@ -85,6 +85,14 @@ on:
         type: string
         default: ''
         description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
+      build-amd64:
+        type: boolean
+        default: true
+        description: "Enable AMD64 build (default: true)"
+      build-arm64:
+        type: boolean
+        default: true
+        description: "Enable ARM64 build (default: true)"
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -102,6 +110,9 @@ on:
 jobs:
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
+    if: |
+      (matrix.platform == 'linux/amd64' && inputs.build-amd64) ||
+      (matrix.platform == 'linux/arm64' && inputs.build-arm64)
     strategy:
       fail-fast: true
       matrix:
