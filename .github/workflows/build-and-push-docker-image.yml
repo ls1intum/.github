@@ -323,6 +323,7 @@ jobs:
 
   merge:
     runs-on: ${{ inputs.runner-amd64 }}
+    if: ${{ inputs.build-amd64 || inputs.build-arm64 }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
