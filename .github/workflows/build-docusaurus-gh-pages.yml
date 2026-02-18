@@ -10,7 +10,7 @@ on:
       node-version:
         description: "Node.js version to use"
         type: string
-        default: "20"
+        default: "22"
       environment:
         description: "GitHub Pages deployment environment name"
         type: string
@@ -37,16 +37,23 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: yarn
           cache-dependency-path: ${{ inputs.docs-path }}/yarn.lock
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Enable Corepack
         run: corepack enable
 
       - name: Install dependencies
+        env:
+          DOCS_PATH: ${{ inputs.docs-path }}
         run: |
           cd ${{ inputs.docs-path }}
           yarn install --immutable
 
       - name: Build website
+        env:
+          DOCS_PATH: ${{ inputs.docs-path }}
         run: |
           cd ${{ inputs.docs-path }}
           yarn build
