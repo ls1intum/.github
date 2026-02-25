@@ -172,15 +172,6 @@ jobs:
         run: |
           BUILD_ARGS="${{ inputs.build-args }}"
           
-          # Add https-proxy as build-arg if provided
-          if [[ -n "${{ inputs.https-proxy }}" ]]; then
-            BUILD_ARGS="$BUILD_ARGS"$'\n'"HTTPS_PROXY=${{ inputs.https-proxy }}"
-            BUILD_ARGS="$BUILD_ARGS"$'\n'"https_proxy=${{ inputs.https-proxy }}"
-            BUILD_ARGS="$BUILD_ARGS"$'\n'"HTTP_PROXY=${{ inputs.https-proxy }}"
-            BUILD_ARGS="$BUILD_ARGS"$'\n'"http_proxy=${{ inputs.https-proxy }}"
-            echo "Added HTTPS_PROXY/HTTP_PROXY build-args"
-          fi
-          
           echo "build-args<<EOF" >> $GITHUB_OUTPUT
           echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
