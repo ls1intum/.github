@@ -159,90 +159,18 @@ jobs:
         with:
           platforms: all
 
-      - name: Generate BuildKit config
-        id: buildkit-config
-        run: |
-          CONFIG=""
-          
-          # Helper to extract host:port from URL
-          extract_host() {
-            echo "$1" | sed -E 's|^https?://||' | sed -E 's|/.*$||'
-          }
-          
-          # Docker Hub mirror
-          if [[ -n "${{ inputs.docker-hub-mirror }}" ]]; then
-            MIRROR="${{ inputs.docker-hub-mirror }}"
-            MIRROR_HOST=$(extract_host "$MIRROR")
-            CONFIG="${CONFIG}[registry.\"docker.io\"]"$'\n'
-            CONFIG="${CONFIG}  mirrors = [\"${MIRROR_HOST}\"]"$'\n'
-            # http/insecure flags go on the MIRROR registry, not docker.io
-            if [[ "$MIRROR" == http://* ]]; then
-              CONFIG="${CONFIG}[registry.\"${MIRROR_HOST}\"]"$'\n'
-              CONFIG="${CONFIG}  http = true"$'\n'
-              CONFIG="${CONFIG}  insecure = true"$'\n'
-            fi
-          fi
-          
-          # GHCR mirror
-          if [[ -n "${{ inputs.ghcr-mirror }}" ]]; then
-            MIRROR="${{ inputs.ghcr-mirror }}"
-            MIRROR_HOST=$(extract_host "$MIRROR")
-            CONFIG="${CONFIG}[registry.\"ghcr.io\"]"$'\n'
-            CONFIG="${CONFIG}  mirrors = [\"${MIRROR_HOST}\"]"$'\n'
-            if [[ "$MIRROR" == http://* ]]; then
-              CONFIG="${CONFIG}[registry.\"${MIRROR_HOST}\"]"$'\n'
-              CONFIG="${CONFIG}  http = true"$'\n'
-              CONFIG="${CONFIG}  insecure = true"$'\n'
-            fi
-          fi
-          
-          # Output config
-          echo "config<<EOF" >> $GITHUB_OUTPUT
-          echo "$CONFIG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+
   
       - name: Install Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
-          buildkitd-config-inline: ${{ steps.buildkit-config.outputs.config }}
 
-      - name: Inject npm/yarn registry config
-        if: ${{ inputs.npm-registry != '' }}
-        run: |
-          # Inject registry config files into build context
-          # These are automatically read by npm/yarn - no Dockerfile changes needed
-          CONTEXT_DIR="${{ inputs.docker-context }}"
-          REGISTRY_URL="${{ inputs.npm-registry }}"
-          
-          # .npmrc for npm and yarn classic
-          echo "registry=${REGISTRY_URL}" > "${CONTEXT_DIR}/.npmrc"
-          
-          # .yarnrc for yarn classic (v1)
-          echo "registry \"${REGISTRY_URL}\"" > "${CONTEXT_DIR}/.yarnrc"
-          
-          # .yarnrc.yml for yarn berry (v2+) - only if it doesn't exist
-          # (existing .yarnrc.yml likely has project-specific config)
-          if [[ ! -f "${CONTEXT_DIR}/.yarnrc.yml" ]]; then
-            echo "npmRegistryServer: \"${REGISTRY_URL}\"" > "${CONTEXT_DIR}/.yarnrc.yml"
-          fi
-          
-          echo "Injected registry config pointing to: ${REGISTRY_URL}"
 
       - name: Prepare build args
         id: build-args
         run: |
           BUILD_ARGS="${{ inputs.build-args }}"
-          
-          # Add apt-proxy as build-arg if provided
-          if [[ -n "${{ inputs.apt-proxy }}" ]]; then
-            if [[ -n "$BUILD_ARGS" ]]; then
-              BUILD_ARGS="$BUILD_ARGS"$'\n'"APT_HTTP_PROXY=${{ inputs.apt-proxy }}"
-            else
-              BUILD_ARGS="APT_HTTP_PROXY=${{ inputs.apt-proxy }}"
-            fi
-            echo "Added APT_HTTP_PROXY build-arg"
-          fi
           
           # Add https-proxy as build-arg if provided
           if [[ -n "${{ inputs.https-proxy }}" ]]; then
