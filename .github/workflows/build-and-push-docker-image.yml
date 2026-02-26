@@ -56,27 +56,30 @@ on:
         type: string
         default: ubuntu-latest
         description: "Runner to use for the merge job (default: ubuntu-latest)"
-      # Registry mirror configuration (for self-hosted runners with caching proxies)
+      registry-mirror:
+        type: string
+        default: ''
+        description: "Harbor hostname for pull-through proxy cache (e.g., harbor.example.com). Automatically configures mirrors for docker.io (/dockerhub-proxy) and ghcr.io (/ghcr-proxy)."
       docker-hub-mirror:
         type: string
         default: ''
-        description: "Mirror URL for Docker Hub (e.g., http://registry-mirror:5000 or https://mirror.example.com)"
+        description: "Deprecated. Use registry-mirror instead."
       ghcr-mirror:
         type: string
         default: ''
-        description: "Mirror URL for ghcr.io (e.g., http://registry-mirror-ghcr:5000)"
+        description: "Deprecated. Use registry-mirror instead."
       npm-registry:
         type: string
         default: ''
-        description: "NPM/Yarn registry URL (e.g., http://verdaccio:4873). Injects .npmrc/.yarnrc into build context."
+        description: "Deprecated. only here so CI doesn't break."
       apt-proxy:
         type: string
         default: ''
-        description: "Apt-Cacher-NG proxy URL (e.g., http://apt-cacher-ng:3142). Injects apt proxy config into build context."
+        description: "Deprecated. only here so CI doesn't break."
       https-proxy:
         type: string
         default: ''
-        description: "HTTPS proxy URL for extension/artifact downloads (e.g., http://squid:3128). Sets HTTPS_PROXY during build."
+        description: "Deprecated. only here so CI doesn't break."
       cache-from:
         type: string
         default: ''
@@ -165,6 +168,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
+          config-inline: |
+            ${{ inputs.registry-mirror != '' && format('[registry."docker.io"]{0}  mirrors = ["{1}/dockerhub-proxy"]{0}[registry."ghcr.io"]{0}  mirrors = ["{1}/ghcr-proxy"]{0}[registry."{1}"]{0}  http = true', '\n', inputs.registry-mirror) || '' }}
 
 
       - name: Prepare build args
