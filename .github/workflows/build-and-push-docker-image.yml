@@ -256,7 +256,7 @@ jobs:
 
       - name: Inject buildkit mount cache
         if: ${{ inputs.cache-dance }}
-        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        uses: reproducible-containers/buildkit-cache-dance@v3.3.1
         with:
           cache-dir: .buildkit-cache
           dockerfile: ${{ inputs.docker-file }}
