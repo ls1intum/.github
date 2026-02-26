@@ -164,12 +164,20 @@ jobs:
 
 
   
+      - name: Generate BuildKit config
+        id: buildkit-config
+        if: ${{ inputs.registry-mirror != '' }}
+        run: |
+          MIRROR="${{ inputs.registry-mirror }}"
+          CONFIG_FILE="${RUNNER_TEMP}/buildkitd.toml"
+          printf '[registry."docker.io"]\n  mirrors = ["%s/dockerhub-proxy"]\n[registry."ghcr.io"]\n  mirrors = ["%s/ghcr-proxy"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR" > "$CONFIG_FILE"
+          echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
+
       - name: Install Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
-          config-inline: |
-            ${{ inputs.registry-mirror != '' && format('[registry."docker.io"]{0}  mirrors = ["{1}/dockerhub-proxy"]{0}[registry."ghcr.io"]{0}  mirrors = ["{1}/ghcr-proxy"]{0}[registry."{1}"]{0}  http = true', '\n', inputs.registry-mirror) || '' }}
+          buildkitd-config: ${{ steps.buildkit-config.outputs.config-file || '' }}
 
 
       - name: Prepare build args
