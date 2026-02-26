@@ -214,8 +214,10 @@ jobs:
           if [[ -n "$CACHE_TO" ]]; then
             # Convert escaped newlines to actual newlines first
             CACHE_TO=$(echo "$CACHE_TO" | sed 's/\\n/\n/g')
-            # Append platform slug to any ref= value
+            # Append platform slug to type=registry ref= values
             CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+            # Append platform slug to type=gha scope= values
+            CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(scope=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
           fi
           
           # Process cache-from
@@ -223,8 +225,10 @@ jobs:
            if [[ -n "$CACHE_FROM" ]]; then
             # Convert escaped newlines to actual newlines first
             CACHE_FROM=$(echo "$CACHE_FROM" | sed 's/\\n/\n/g')
-            # Append platform slug to any ref= value
+            # Append platform slug to type=registry ref= values
             CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+            # Append platform slug to type=gha scope= values
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(scope=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
           fi
           
           echo "cache-to<<EOF" >> $GITHUB_OUTPUT
