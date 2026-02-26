@@ -44,6 +44,62 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      runner-amd64:
+        type: string
+        default: ubuntu-24.04
+        description: "Runner to use for linux/amd64 builds"
+      runner-arm64:
+        type: string
+        default: ubuntu-24.04-arm
+        description: "Runner to use for linux/arm64 builds"
+      runner-merge:
+        type: string
+        default: ubuntu-latest
+        description: "Runner to use for the merge job (default: ubuntu-latest)"
+      registry-mirror:
+        type: string
+        default: ''
+        description: "Harbor hostname for pull-through proxy cache (e.g., harbor.example.com). Automatically configures mirrors for docker.io (/dockerhub-proxy) and ghcr.io (/ghcr-proxy)."
+      docker-hub-mirror:
+        type: string
+        default: ''
+        description: "Deprecated. Use registry-mirror instead."
+      ghcr-mirror:
+        type: string
+        default: ''
+        description: "Deprecated. Use registry-mirror instead."
+      npm-registry:
+        type: string
+        default: ''
+        description: "Deprecated. only here so CI doesn't break."
+      apt-proxy:
+        type: string
+        default: ''
+        description: "Deprecated. only here so CI doesn't break."
+      https-proxy:
+        type: string
+        default: ''
+        description: "Deprecated. only here so CI doesn't break."
+      cache-from:
+        type: string
+        default: ''
+        description: "List of external cache sources for buildx (e.g., type=registry,ref=...)"
+      cache-to:
+        type: string
+        default: ''
+        description: "List of cache export destinations for buildx (e.g., type=registry,ref=...)"
+      build-amd64:
+        type: boolean
+        default: true
+        description: "Enable AMD64 build (default: true)"
+      build-arm64:
+        type: boolean
+        default: true
+        description: "Enable ARM64 build (default: true)"
+      cache-dance:
+        type: boolean
+        default: false
+        description: "Enable buildkit-cache-dance to persist RUN --mount=type=cache data across builds. Auto-discovers cache mounts from the Dockerfile. Works on both GitHub-hosted and self-hosted runners."
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -54,18 +110,43 @@ on:
         required: false
       registry-password:
         required: false
+      docker-secrets:
+        required: false
+        description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
+  setup-matrix:
+    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - id: set-matrix
+        run: |
+          MATRIX='{"include":['
+          PLATFORMS=()
+          
+          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/amd64","runner":"${{ inputs.runner-amd64 }}"}')
+          fi
+          
+          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/arm64","runner":"${{ inputs.runner-arm64 }}"}')
+          fi
+          
+          # Join array elements with comma
+          JOINED=$(IFS=,; echo "${PLATFORMS[*]}")
+          MATRIX="${MATRIX}${JOINED}]}"
+          
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "Generated matrix: ${MATRIX}"
+
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
+    needs: setup-matrix
+    if: needs.setup-matrix.outputs.matrix != '{"include":[]}'
     strategy:
       fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+      matrix: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     steps:
       # Git Checkout
@@ -84,14 +165,34 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+
+
   
+      - name: Generate BuildKit config
+        id: buildkit-config
+        if: ${{ inputs.registry-mirror != '' }}
+        run: |
+          MIRROR="${{ inputs.registry-mirror }}"
+          CONFIG_FILE="${RUNNER_TEMP}/buildkitd.toml"
+          printf '[registry."docker.io"]\n  mirrors = ["%s/dockerhub-proxy"]\n[registry."ghcr.io"]\n  mirrors = ["%s/ghcr-proxy"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR" > "$CONFIG_FILE"
+          echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
+
       - name: Install Docker Buildx
+        id: setup-buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
+          buildkitd-config: ${{ steps.buildkit-config.outputs.config-file || '' }}
+
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          BUILD_ARGS="${{ inputs.build-args }}"
+          
+          echo "build-args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -106,6 +207,61 @@ jobs:
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
 
+      - name: Prepare Cache Config
+        id: cache-config
+        run: |
+          # Sanitize platform name for use in tag (e.g. linux/amd64 -> linux-amd64)
+          PLATFORM_SLUG=${{ matrix.platform }}
+          PLATFORM_SLUG=${PLATFORM_SLUG//\//-}
+          
+          # Process cache-to
+          CACHE_TO="${{ inputs.cache-to }}"
+          if [[ -n "$CACHE_TO" ]]; then
+            # Convert escaped newlines to actual newlines first
+            CACHE_TO=$(echo "$CACHE_TO" | sed 's/\\n/\n/g')
+            # Append platform slug to type=registry ref= values
+            CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+            # Append platform slug to type=gha scope= values
+            CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(scope=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+          fi
+          
+          # Process cache-from
+          CACHE_FROM="${{ inputs.cache-from }}"
+           if [[ -n "$CACHE_FROM" ]]; then
+            # Convert escaped newlines to actual newlines first
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed 's/\\n/\n/g')
+            # Append platform slug to type=registry ref= values
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+            # Append platform slug to type=gha scope= values
+            CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(scope=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
+          fi
+          
+          echo "cache-to<<EOF" >> $GITHUB_OUTPUT
+          echo "$CACHE_TO" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "cache-from<<EOF" >> $GITHUB_OUTPUT
+          echo "$CACHE_FROM" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # buildkit-cache-dance: Persist RUN --mount=type=cache data across ephemeral runners.
+      # Auto-discovers cache mount targets from the Dockerfile.
+      # Uses actions/cache as the storage backend (works with both GitHub-hosted and ARC runners).
+      - name: Restore buildkit mount cache
+        if: ${{ inputs.cache-dance }}
+        uses: actions/cache@v4
+        with:
+          path: .buildkit-cache
+          key: buildkit-mount-${{ inputs.image-name }}-${{ matrix.platform }}
+
+      - name: Inject buildkit mount cache
+        if: ${{ inputs.cache-dance }}
+        uses: reproducible-containers/buildkit-cache-dance@v3.3.1
+        with:
+          cache-dir: .buildkit-cache
+          dockerfile: ${{ inputs.docker-file }}
+          builder: ${{ steps.setup-buildx.outputs.name }}
+
       - name: Build and push Docker Image
         id: build
         uses: docker/build-push-action@v6
@@ -114,8 +270,12 @@ jobs:
           file: ${{ inputs.docker-file }}
           tags: ${{ inputs.registry }}/${{ inputs.image-name }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
           network: ${{ inputs.network }}
+          platforms: ${{ matrix.platform }}
+          cache-from: ${{ steps.cache-config.outputs.cache-from }}
+          cache-to: ${{ steps.cache-config.outputs.cache-to }}
+          secrets: ${{ secrets.docker-secrets }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
@@ -134,16 +294,18 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v6
         with:
-          name: digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
+          name: arc-digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
 
   merge:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
+    if: ${{ inputs.build-amd64 || inputs.build-arm64 }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
     needs:
+      - setup-matrix
       - build
     steps:
       - name: Prepare
@@ -155,7 +317,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digests-${{ env.IMAGE_NAME }}-*
+          pattern: arc-digests-${{ env.IMAGE_NAME }}-*
           merge-multiple: true
 
       - name: Login to GHCR
