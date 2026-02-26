@@ -96,6 +96,10 @@ on:
         type: boolean
         default: true
         description: "Enable ARM64 build (default: true)"
+      cache-dance:
+        type: boolean
+        default: false
+        description: "Enable buildkit-cache-dance to persist RUN --mount=type=cache data across builds. Auto-discovers cache mounts from the Dockerfile. Works on both GitHub-hosted and self-hosted runners."
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -174,6 +178,7 @@ jobs:
           echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Install Docker Buildx
+        id: setup-buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: "network=${{ inputs.network }}"
@@ -238,6 +243,24 @@ jobs:
           echo "cache-from<<EOF" >> $GITHUB_OUTPUT
           echo "$CACHE_FROM" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      # buildkit-cache-dance: Persist RUN --mount=type=cache data across ephemeral runners.
+      # Auto-discovers cache mount targets from the Dockerfile.
+      # Uses actions/cache as the storage backend (works with both GitHub-hosted and ARC runners).
+      - name: Restore buildkit mount cache
+        if: ${{ inputs.cache-dance }}
+        uses: actions/cache@v4
+        with:
+          path: .buildkit-cache
+          key: buildkit-mount-${{ inputs.image-name }}-${{ matrix.platform }}
+
+      - name: Inject buildkit mount cache
+        if: ${{ inputs.cache-dance }}
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.2
+        with:
+          cache-dir: .buildkit-cache
+          dockerfile: ${{ inputs.docker-file }}
+          builder: ${{ steps.setup-buildx.outputs.name }}
 
       - name: Build and push Docker Image
         id: build
