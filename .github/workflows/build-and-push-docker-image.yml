@@ -59,7 +59,7 @@ on:
       registry-mirror:
         type: string
         default: ''
-        description: "Harbor hostname for pull-through proxy cache (e.g., harbor.example.com). Automatically configures mirrors for docker.io (/dockerhub-proxy) and ghcr.io (/ghcr-proxy)."
+        description: "Base URL of an OCI-compatible pull-through cache (e.g., http://zot.example.com:5000). Configures BuildKit mirrors for both docker.io and ghcr.io pointing directly at this URL."
       docker-hub-mirror:
         type: string
         default: ''
@@ -174,7 +174,7 @@ jobs:
         run: |
           MIRROR="${{ inputs.registry-mirror }}"
           CONFIG_FILE="${RUNNER_TEMP}/buildkitd.toml"
-          printf '[registry."docker.io"]\n  mirrors = ["%s/dockerhub-proxy"]\n[registry."ghcr.io"]\n  mirrors = ["%s/ghcr-proxy"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR" > "$CONFIG_FILE"
+          printf '[registry."docker.io"]\n  mirrors = ["%s"]\n[registry."ghcr.io"]\n  mirrors = ["%s"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR" > "$CONFIG_FILE"
           echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Install Docker Buildx
