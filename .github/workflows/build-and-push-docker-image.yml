@@ -173,8 +173,11 @@ jobs:
         if: ${{ inputs.registry-mirror != '' }}
         run: |
           MIRROR="${{ inputs.registry-mirror }}"
+          # Strip scheme for the registry key — BuildKit expects hostname:port, not http://hostname:port
+          MIRROR_HOST="${MIRROR#http://}"
+          MIRROR_HOST="${MIRROR_HOST#https://}"
           CONFIG_FILE="${RUNNER_TEMP}/buildkitd.toml"
-          printf '[registry."docker.io"]\n  mirrors = ["%s"]\n[registry."ghcr.io"]\n  mirrors = ["%s"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR" > "$CONFIG_FILE"
+          printf '[registry."docker.io"]\n  mirrors = ["%s"]\n[registry."ghcr.io"]\n  mirrors = ["%s"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR_HOST" > "$CONFIG_FILE"
           echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Install Docker Buildx
