@@ -100,6 +100,10 @@ on:
         type: boolean
         default: false
         description: "Enable buildkit-cache-dance to persist RUN --mount=type=cache data across builds. Auto-discovers cache mounts from the Dockerfile. Works on both GitHub-hosted and self-hosted runners."
+      setup-qemu:
+        type: boolean
+        default: true
+        description: "Set up QEMU for multi-platform emulation. Disable when all target platforms have native runners to avoid unnecessary overhead."
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -162,6 +166,7 @@ jobs:
           fetch-depth: 1
 
       - name: Set up QEMU
+        if: ${{ inputs.setup-qemu }}
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
