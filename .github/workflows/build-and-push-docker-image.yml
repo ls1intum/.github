@@ -320,7 +320,7 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           path: ${{ runner.temp }}/digests
-          pattern: arc-digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-*
+          pattern: arc-digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-linux-*
           merge-multiple: true
 
       - name: Login to GHCR
