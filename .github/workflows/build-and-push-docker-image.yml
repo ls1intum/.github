@@ -134,7 +134,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v6
         with:
-          name: digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -155,7 +155,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digests-${{ env.IMAGE_NAME }}-*
+          pattern: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-linux-*
           merge-multiple: true
 
       - name: Login to GHCR
