@@ -94,7 +94,7 @@ jobs:
               mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ secrets.registry-user || github.actor }}
@@ -159,7 +159,7 @@ jobs:
           merge-multiple: true
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
