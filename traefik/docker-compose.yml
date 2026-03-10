@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    command:
+      - --log.level=INFO
+      - --api.dashboard=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --certificatesresolvers.harica.acme.storage=/etc/traefik/acme.json
+      - --certificatesresolvers.harica.acme.caServer=${HARICA_ACME_CA_SERVER}
+      - --certificatesresolvers.harica.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.harica.acme.eab.kid=${HARICA_ACME_EAB_KID}
+      - --certificatesresolvers.harica.acme.eab.hmacEncoded=${HARICA_ACME_EAB_HMAC}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/acme.json:/etc/traefik/acme.json
+    restart: unless-stopped
+    networks:
+      - traefik
+
+networks:
+  traefik:
+    name: traefik
