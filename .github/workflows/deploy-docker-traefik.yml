@@ -50,6 +50,12 @@ jobs:
               echo "$COMPOSE_FILE does not exist. Skipping docker compose down."
             fi
 
+      - name: Copy docker compose file to root of repository
+        run: |
+          # Copy the file to the base directory
+          cp "traefik/docker-compose.yml" "docker-compose.yml"
+        shell: bash
+
       - name: Copy docker compose file to VM host
         uses: appleboy/scp-action@v1.0.0
         with:
@@ -60,7 +66,7 @@ jobs:
           proxy_username: ${{ vars.DEPLOYMENT_GATEWAY_USER }}
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
-          source: traefik/docker-compose.yml
+          source: docker-compose.yml
           target: /opt/traefik
 
       - name: Create local .env file
