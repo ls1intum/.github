@@ -16,7 +16,6 @@ on:
 jobs:
 
   deploy:
-    needs: prepare-deploy
     runs-on: ubuntu-latest
     environment:
       name: ${{ inputs.environment }}
@@ -24,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          repository: ls1intum/.github
+          repository: ls1intum/.github # Always checkout the .github repository to access the traefik/docker-compose.yml file
 
       - name: SSH to VM and execute docker compose down (if exists)
         uses: appleboy/ssh-action@v1.2.5
