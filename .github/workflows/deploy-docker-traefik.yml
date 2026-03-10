@@ -70,7 +70,7 @@ jobs:
           source: traefik/docker-compose.yml
           target: /opt/traefik
 
-      - name: Create local ${{ inputs.env-file-name }} file
+      - name: Create local .env file
         run: |
           ENV_FILE=".env"
           
@@ -78,16 +78,11 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
           echo "IMAGE_TAG=${{ inputs.image-tag }}" >> "$ENV_FILE"
 
-          # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
+          # Append HARICA ACME secrets if provided
           echo "$SECRETS_CONTEXT" | jq -r '
-            del(
-              .github_token,
-              .DOCKER_USERNAME,
-              .DOCKER_PASSWORD,
-              .DEPLOYMENT_GATEWAY_SSH_KEY,
-              .VM_SSH_PRIVATE_KEY
-            )
+            {HARICA_ACME_CA_SERVER, HARICA_ACME_EAB_KID, HARICA_ACME_EAB_HMAC}
             | to_entries[]
+            | select(.value != null and .value != "")
             | "\(.key)=\(.value | @json)"
           ' >> "$ENV_FILE"
 
