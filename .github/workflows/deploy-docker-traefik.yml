@@ -1,4 +1,4 @@
-name: Deploy Docker Compose
+name: Deploy Traefik
 
 on:
   workflow_call:
@@ -18,7 +18,7 @@ jobs:
   deploy:
     needs: prepare-deploy
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: ${{ inputs.environment }}
     steps:
       - name: Checkout repository
@@ -46,13 +46,7 @@ jobs:
             # Check if docker-compose file exists
             if [ -f "$COMPOSE_FILE" ]; then
               echo "$COMPOSE_FILE found."
-          
-              # Check if .env with env-file-name exists
-              if [ -f "$BASE_PATH/${{ inputs.env-file-name }}" ]; then
-                docker compose -f "$COMPOSE_FILE" --env-file="$BASE_PATH/${{ inputs.env-file-name }}" down --remove-orphans --rmi all ${{ inputs.remove_volumes && '--volumes' || '' }}
-              else
-                docker compose -f "$COMPOSE_FILE" down --remove-orphans --rmi all
-              fi
+              docker compose -f "$COMPOSE_FILE" --env-file="$BASE_PATH/.env" down --remove-orphans --rmi all
             else
               echo "$COMPOSE_FILE does not exist. Skipping docker compose down."
             fi
@@ -70,41 +64,21 @@ jobs:
           source: traefik/docker-compose.yml
           target: /opt/traefik
 
-      - name: Create local ${{ inputs.env-file-name }} file
+      - name: Create local .env file
         run: |
           ENV_FILE=".env"
-          
+
           # Start by adding static environment variables
           echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
           echo "IMAGE_TAG=${{ inputs.image-tag }}" >> "$ENV_FILE"
 
           # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
           echo "$SECRETS_CONTEXT" | jq -r '
-            del(
-              .github_token,
-              .DOCKER_USERNAME,
-              .DOCKER_PASSWORD,
-              .DEPLOYMENT_GATEWAY_SSH_KEY,
-              .VM_SSH_PRIVATE_KEY
-            )
-            | to_entries[]
-            | "\(.key)=\(.value | @json)"
-          ' >> "$ENV_FILE"
-
-          # Append variables from VARS_CONTEXT with quoted and escaped values, excluding certain keys
-          echo "$VARS_CONTEXT" | jq -r '
-            del(
-              .DEPLOYMENT_GATEWAY_PORT,
-              .DEPLOYMENT_GATEWAY_USER,
-              .DEPLOYMENT_GATEWAY_HOST,
-              .VM_USERNAME,
-              .VM_HOST
-            )
+            {HARICA_ACME_CA_SERVER, HARICA_ACME_EAB_KID, HARICA_ACME_EAB_HMAC}
             | to_entries[]
             | "\(.key)=\(.value | @json)"
           ' >> "$ENV_FILE"
         env:
-          VARS_CONTEXT: ${{ toJson(vars) }}
           SECRETS_CONTEXT: ${{ toJson(secrets) }}
 
       - name: Copy .env file to VM host
