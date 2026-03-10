@@ -110,5 +110,6 @@ jobs:
           proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
           proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
           script: |
+            set -e
             BASE_PATH="/opt/traefik"
             docker compose -f "$BASE_PATH/docker-compose.yml" --env-file="$BASE_PATH/.env" up --pull=always -d
