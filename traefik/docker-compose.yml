@@ -12,6 +12,7 @@ services:
       - --entrypoints.websecure.address=:443
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
       - --certificatesresolvers.harica.acme.storage=/etc/traefik/acme.json
       - --certificatesresolvers.harica.acme.caServer=${HARICA_ACME_CA_SERVER}
       - --certificatesresolvers.harica.acme.httpchallenge.entrypoint=web
