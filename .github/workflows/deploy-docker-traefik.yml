@@ -112,4 +112,10 @@ jobs:
           script: |
             set -e
             BASE_PATH="/opt/traefik"
+
+            # Ensure Traefik ACME storage file exists with strict permissions
+            if [ ! -f "$BASE_PATH/acme.json" ]; then
+              touch "$BASE_PATH/acme.json"
+            fi
+            chmod 600 "$BASE_PATH/acme.json"
             docker compose -f "$BASE_PATH/docker-compose.yml" --env-file="$BASE_PATH/.env" up --pull=always -d
