@@ -227,6 +227,10 @@ jobs:
           if [[ -n "$CACHE_TO" ]]; then
             # Convert escaped newlines to actual newlines first
             CACHE_TO=$(echo "$CACHE_TO" | sed 's/\\n/\n/g')
+            # Sanitize slashes in Docker tag portion of ref= values.
+            # Branch names like feat/foo are invalid as Docker tags; replace / with -.
+            # Only the tag part (after the last colon in ref=...) needs sanitizing.
+            CACHE_TO=$(echo "$CACHE_TO" | perl -pe 's/(ref=[^:,\s]+:)([^,\s]+)/my ($pre,$tag)=($1,$2); $tag=~s|\/|-|g; "$pre$tag"/ge')
             # Append platform slug to type=registry ref= values
             CACHE_TO=$(echo "$CACHE_TO" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
             # Append platform slug to type=gha scope= values
@@ -238,6 +242,8 @@ jobs:
            if [[ -n "$CACHE_FROM" ]]; then
             # Convert escaped newlines to actual newlines first
             CACHE_FROM=$(echo "$CACHE_FROM" | sed 's/\\n/\n/g')
+            # Sanitize slashes in Docker tag portion of ref= values.
+            CACHE_FROM=$(echo "$CACHE_FROM" | perl -pe 's/(ref=[^:,\s]+:)([^,\s]+)/my ($pre,$tag)=($1,$2); $tag=~s|\/|-|g; "$pre$tag"/ge')
             # Append platform slug to type=registry ref= values
             CACHE_FROM=$(echo "$CACHE_FROM" | sed -E "s/(ref=[^,[:space:]]+)/\1-${PLATFORM_SLUG}/g")
             # Append platform slug to type=gha scope= values
