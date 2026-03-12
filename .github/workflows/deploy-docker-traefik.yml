@@ -77,14 +77,9 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
           echo "IMAGE_TAG=${{ inputs.image-tag }}" >> "$ENV_FILE"
 
-          # Append secrets from SECRETS_CONTEXT with quoted and escaped values, excluding certain keys
-          echo "$SECRETS_CONTEXT" | jq -r '
-            {HARICA_ACME_CA_SERVER, HARICA_ACME_EAB_KID, HARICA_ACME_EAB_HMAC}
-            | to_entries[]
-            | "\(.key)=\(.value | @json)"
-          ' >> "$ENV_FILE"
-        env:
-          SECRETS_CONTEXT: ${{ toJson(secrets) }}
+          echo "HARICA_ACME_CA_SERVER=${{ secrets.HARICA_ACME_CA_SERVER }}" >> "$ENV_FILE"
+          echo "HARICA_ACME_EAB_KID=${{ secrets.HARICA_ACME_EAB_KID }}" >> "$ENV_FILE"
+          echo "HARICA_ACME_EAB_HMAC=${{ secrets.HARICA_ACME_EAB_HMAC }}" >> "$ENV_FILE"
 
       - name: Copy .env file to VM host
         uses: appleboy/scp-action@v1.0.0
