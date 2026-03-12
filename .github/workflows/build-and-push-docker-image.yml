@@ -124,7 +124,7 @@ on:
 
 jobs:
   setup-matrix:
-    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner-merge || 'ubuntu-latest' }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -346,7 +346,7 @@ jobs:
           retention-days: 1
 
   merge:
-    runs-on: ${{ inputs.runner-amd64 || 'ubuntu-latest' }}
+    runs-on: ${{ inputs.runner-merge || 'ubuntu-latest' }}
     if: ${{ inputs.build-amd64 || inputs.build-arm64 }}
     outputs: 
       image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
