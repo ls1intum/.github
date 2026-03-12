@@ -104,6 +104,10 @@ on:
         type: boolean
         default: true
         description: "Set up QEMU for multi-platform emulation. Disable when all target platforms have native runners to avoid unnecessary overhead."
+      buildkit-remote:
+        type: boolean
+        default: false
+        description: "Route builds to a stateful remote BuildKit daemon. Requires the runner to have BUILDKIT_NAMESPACE and BUILDKIT_NUM_WORKERS env vars (set by arc-runner-set-buildkit-exp). The endpoint is computed via consistent hashing on github.repository + docker-file."
     outputs:
       image_tag: 
         description: "The tag of the image that was built"
@@ -166,26 +170,54 @@ jobs:
           fetch-depth: 1
 
       - name: Set up QEMU
-        if: ${{ inputs.setup-qemu }}
+        if: ${{ inputs.setup-qemu && !inputs.buildkit-remote }}
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
-
-  
       - name: Generate BuildKit config
         id: buildkit-config
-        if: ${{ inputs.registry-mirror != '' }}
+        if: ${{ inputs.registry-mirror != '' && !inputs.buildkit-remote }}
         run: |
           MIRROR="${{ inputs.registry-mirror }}"
-          # Strip scheme for the registry key — BuildKit expects hostname:port, not http://hostname:port
           MIRROR_HOST="${MIRROR#http://}"
           MIRROR_HOST="${MIRROR_HOST#https://}"
           CONFIG_FILE="${RUNNER_TEMP}/buildkitd.toml"
           printf '[registry."docker.io"]\n  mirrors = ["%s"]\n[registry."ghcr.io"]\n  mirrors = ["%s"]\n[registry."%s"]\n  http = true\n' "$MIRROR" "$MIRROR" "$MIRROR_HOST" > "$CONFIG_FILE"
           echo "config-file=${CONFIG_FILE}" >> "$GITHUB_OUTPUT"
 
+      - name: Compute BuildKit worker endpoint
+        id: buildkit-route
+        if: ${{ inputs.buildkit-remote }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NUM_WORKERS="${BUILDKIT_NUM_WORKERS:-}"
+          BK_NAMESPACE="${BUILDKIT_NAMESPACE:-}"
+          if [[ -z "${NUM_WORKERS}" || "${NUM_WORKERS}" == "0" ]]; then
+            echo "::error::BUILDKIT_NUM_WORKERS is not set. Is this job running on arc-runner-set-buildkit-exp?"
+            exit 1
+          fi
+          if [[ -z "${BK_NAMESPACE}" ]]; then
+            echo "::error::BUILDKIT_NAMESPACE is not set. Is this job running on arc-runner-set-buildkit-exp?"
+            exit 1
+          fi
+          HASH_INPUT="${{ github.repository }}::${{ inputs.docker-file }}"
+          WORKER_ID=$(echo -n "${HASH_INPUT}" | cksum | awk "{print \$1 % ${NUM_WORKERS}}")
+          ADDR="tcp://buildkitd-${WORKER_ID}.buildkitd.${BK_NAMESPACE}.svc.cluster.local:1234"
+          echo "endpoint=${ADDR}" >> "${GITHUB_OUTPUT}"
+          echo "BuildKit routing: '${HASH_INPUT}' → buildkitd-${WORKER_ID} @ ${ADDR}"
+
+      - name: Install Docker Buildx (remote)
+        if: ${{ inputs.buildkit-remote }}
+        id: setup-buildx-remote
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: remote
+          endpoint: ${{ steps.buildkit-route.outputs.endpoint }}
+
       - name: Install Docker Buildx
+        if: ${{ !inputs.buildkit-remote }}
         id: setup-buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -274,7 +306,7 @@ jobs:
         with:
           cache-dir: .buildkit-cache
           dockerfile: ${{ inputs.docker-file }}
-          builder: ${{ steps.setup-buildx.outputs.name }}
+          builder: ${{ steps.setup-buildx-remote.outputs.name || steps.setup-buildx.outputs.name }}
 
       - name: Build and push Docker Image
         id: build
