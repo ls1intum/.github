@@ -1,0 +1,116 @@
+name: Deploy Traefik
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        description: "The deployment environment (e.g., production, staging)"
+        required: true
+
+      image-tag:
+        type: string
+        description: "Image tag of traefik to deploy (https://hub.docker.com/_/traefik)"
+        required: true
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          repository: ls1intum/.github # Always checkout the .github repository to access the traefik/docker-compose.yml file
+
+      - name: SSH to VM and execute docker compose down (if exists)
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.VM_HOST }}
+          username: ${{ vars.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          proxy_host: ${{ vars.DEPLOYMENT_GATEWAY_HOST }}
+          proxy_username: ${{ vars.DEPLOYMENT_GATEWAY_USER }}
+          proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
+          proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
+          script: |
+            #!/bin/bash
+            set -e  # Exit immediately if a command exits with a non-zero status
+
+            BASE_PATH="/opt/traefik"
+            COMPOSE_FILE="$BASE_PATH/docker-compose.yml"
+
+            # Check if docker-compose file exists
+            if [ -f "$COMPOSE_FILE" ]; then
+              echo "$COMPOSE_FILE found."
+              docker compose -f "$COMPOSE_FILE" --env-file="$BASE_PATH/.env" down --remove-orphans --rmi all
+            else
+              echo "$COMPOSE_FILE does not exist. Skipping docker compose down."
+            fi
+
+      - name: Copy docker compose file to root of repository
+        run: |
+          # Copy the file to the base directory
+          cp "traefik/docker-compose.yml" "docker-compose.yml"
+        shell: bash
+
+      - name: Copy docker compose file to VM host
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ vars.VM_HOST }}
+          username: ${{ vars.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          proxy_host: ${{ vars.DEPLOYMENT_GATEWAY_HOST }}
+          proxy_username: ${{ vars.DEPLOYMENT_GATEWAY_USER }}
+          proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
+          proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
+          source: docker-compose.yml
+          target: /opt/traefik
+
+      - name: Create local .env file
+        run: |
+          ENV_FILE=".env"
+
+          # Start by adding static environment variables
+          echo "ENVIRONMENT=${{ inputs.environment }}" > "$ENV_FILE"
+          echo "IMAGE_TAG=${{ inputs.image-tag }}" >> "$ENV_FILE"
+
+          echo "HARICA_ACME_CA_SERVER=${{ secrets.HARICA_ACME_CA_SERVER }}" >> "$ENV_FILE"
+          echo "HARICA_ACME_EAB_KID=${{ secrets.HARICA_ACME_EAB_KID }}" >> "$ENV_FILE"
+          echo "HARICA_ACME_EAB_HMAC=${{ secrets.HARICA_ACME_EAB_HMAC }}" >> "$ENV_FILE"
+
+      - name: Copy .env file to VM host
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ vars.VM_HOST }}
+          username: ${{ vars.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          proxy_host: ${{ vars.DEPLOYMENT_GATEWAY_HOST }}
+          proxy_username: ${{ vars.DEPLOYMENT_GATEWAY_USER }}
+          proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
+          proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
+          source: .env
+          target: /opt/traefik
+
+      - name: SSH to VM and execute docker compose up
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ vars.VM_HOST }}
+          username: ${{ vars.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          proxy_host: ${{ vars.DEPLOYMENT_GATEWAY_HOST }}
+          proxy_username: ${{ vars.DEPLOYMENT_GATEWAY_USER }}
+          proxy_key: ${{ secrets.DEPLOYMENT_GATEWAY_SSH_KEY }}
+          proxy_port: ${{ vars.DEPLOYMENT_GATEWAY_PORT }}
+          script: |
+            set -e
+            BASE_PATH="/opt/traefik"
+
+            # Ensure Traefik ACME storage file exists with strict permissions
+            if [ ! -f "$BASE_PATH/acme.json" ]; then
+              touch "$BASE_PATH/acme.json"
+            fi
+            chmod 600 "$BASE_PATH/acme.json"
+            docker compose -f "$BASE_PATH/docker-compose.yml" --env-file="$BASE_PATH/.env" up --pull=always -d
