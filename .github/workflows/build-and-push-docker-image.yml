@@ -36,6 +36,10 @@ on:
           - Full docker/metadata-action tag configuration (e.g., "type=semver,pattern={{version}}")
           - Mixed format with multiple lines (e.g., "v1.0,stable" on one line and "type=semver,pattern={{version}}" on another)
         required: false
+      image-tag:
+        type: string
+        default: ''
+        description: "Optional base image tag override (e.g. my-test-tag)"
       registry:
         type: string
         default: ghcr.io
@@ -72,6 +76,18 @@ on:
       image_tag:
         description: "The tag of the image that was built"
         value: ${{ jobs.self-hosted-buildkit.outputs.image_tag || jobs.github-runners.outputs.image_tag }}
+      base_tag:
+        description: "Derived base Docker tag"
+        value: ${{ jobs.self-hosted-buildkit.outputs.base_tag || jobs.github-runners.outputs.base_tag }}
+      sha_tag:
+        description: "Derived immutable Docker tag with short SHA suffix"
+        value: ${{ jobs.self-hosted-buildkit.outputs.sha_tag || jobs.github-runners.outputs.sha_tag }}
+      cache_tag:
+        description: "Derived cache tag namespace"
+        value: ${{ jobs.self-hosted-buildkit.outputs.cache_tag || jobs.github-runners.outputs.cache_tag }}
+      image_repo:
+        description: "Lower-cased owner/repository name"
+        value: ${{ jobs.self-hosted-buildkit.outputs.image_repo || jobs.github-runners.outputs.image_repo }}
 
     secrets:
       registry-user:
@@ -94,6 +110,7 @@ jobs:
       build-args: ${{ inputs.build-args }}
       labels: ${{ inputs.labels }}
       tags: ${{ inputs.tags }}
+      image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
       runner-amd64: ${{ inputs.runner-amd64 }}
@@ -117,6 +134,7 @@ jobs:
       build-args: ${{ inputs.build-args }}
       labels: ${{ inputs.labels }}
       tags: ${{ inputs.tags }}
+      image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
       runner-amd64: ${{ inputs.runner-amd64 }}

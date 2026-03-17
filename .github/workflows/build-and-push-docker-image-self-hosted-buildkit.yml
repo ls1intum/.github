@@ -36,6 +36,10 @@ on:
           - Full docker/metadata-action tag configuration (e.g., "type=semver,pattern={{version}}")
           - Mixed format with multiple lines (e.g., "v1.0,stable" on one line and "type=semver,pattern={{version}}" on another)
         required: false
+      image-tag:
+        type: string
+        default: ''
+        description: "Optional base image tag override (e.g. my-test-tag)"
       registry:
         type: string
         default: ghcr.io
@@ -68,6 +72,18 @@ on:
       image_tag:
         description: "The tag of the image that was built"
         value: ${{ jobs.merge.outputs.image_tag || jobs.build.outputs.image_tag }}
+      base_tag:
+        description: "Derived base Docker tag"
+        value: ${{ jobs.setup-matrix.outputs.base_tag }}
+      sha_tag:
+        description: "Derived immutable Docker tag with short SHA suffix"
+        value: ${{ jobs.setup-matrix.outputs.sha_tag }}
+      cache_tag:
+        description: "Derived cache tag namespace"
+        value: ${{ jobs.setup-matrix.outputs.cache_tag }}
+      image_repo:
+        description: "Lower-cased owner/repository name"
+        value: ${{ jobs.setup-matrix.outputs.image_repo }}
 
     secrets:
       registry-user:
@@ -84,7 +100,48 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       needs_merge: ${{ steps.set-matrix.outputs.needs_merge }}
+      base_tag: ${{ steps.derive-tags.outputs.base_tag }}
+      sha_tag: ${{ steps.derive-tags.outputs.sha_tag }}
+      cache_tag: ${{ steps.derive-tags.outputs.cache_tag }}
+      image_repo: ${{ steps.derive-tags.outputs.image_repo }}
     steps:
+      - id: derive-tags
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          REF_NAME="${{ github.ref_name }}"
+          SAFE_REF_NAME=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
+          IMAGE_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+
+          OVERRIDE="${{ inputs.image-tag }}"
+          if [[ -n "${OVERRIDE}" ]]; then
+            BASE_TAG="${OVERRIDE}"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_TAG="pr-${{ github.event.pull_request.number }}"
+          elif [[ "${{ github.event_name }}" == "release" && -n "${{ github.event.release.tag_name || '' }}" ]]; then
+            RELEASE_REF="${{ github.event.release.tag_name }}"
+            BASE_TAG=$(echo "${RELEASE_REF}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
+          elif [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+            BASE_TAG="latest"
+          else
+            BASE_TAG="${SAFE_REF_NAME}"
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            CACHE_TAG="build-cache-pr-${{ github.event.pull_request.number }}"
+          elif [[ "${BASE_TAG}" == "latest" ]]; then
+            CACHE_TAG="build-cache"
+          else
+            CACHE_TAG="build-cache-${BASE_TAG}"
+          fi
+
+          echo "base_tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${BASE_TAG}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "cache_tag=${CACHE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${IMAGE_REPO}" >> "$GITHUB_OUTPUT"
+
       - id: set-matrix
         run: |
           MATRIX='{"include":['
@@ -181,9 +238,8 @@ jobs:
         run: |
           echo "TAGS_CONFIG<<EOF" >> $GITHUB_ENV
 
-          echo "type=raw,value=latest,enable={{is_default_branch}}" >> $GITHUB_ENV
-          echo "type=ref,event=branch" >> $GITHUB_ENV
-          echo "type=ref,event=pr" >> $GITHUB_ENV
+          echo "type=raw,value=${{ needs.setup-matrix.outputs.base_tag }}" >> $GITHUB_ENV
+          echo "type=raw,value=${{ needs.setup-matrix.outputs.sha_tag }}" >> $GITHUB_ENV
 
           if [ -n "${{ inputs.tags }}" ]; then
             echo "${{ inputs.tags }}" | while IFS= read -r line || [[ -n "$line" ]]; do
@@ -313,9 +369,8 @@ jobs:
         run: |
           echo "TAGS_CONFIG<<EOF" >> $GITHUB_ENV
 
-          echo "type=raw,value=latest,enable={{is_default_branch}}" >> $GITHUB_ENV
-          echo "type=ref,event=branch" >> $GITHUB_ENV
-          echo "type=ref,event=pr" >> $GITHUB_ENV
+          echo "type=raw,value=${{ needs.setup-matrix.outputs.base_tag }}" >> $GITHUB_ENV
+          echo "type=raw,value=${{ needs.setup-matrix.outputs.sha_tag }}" >> $GITHUB_ENV
 
           if [ -n "${{ inputs.tags }}" ]; then
             echo "${{ inputs.tags }}" | while IFS= read -r line || [[ -n "$line" ]]; do
