@@ -51,15 +51,15 @@ on:
       runner-amd64:
         type: string
         default: ubuntu-24.04
-        description: "Runner to use for linux/amd64 builds"
+        description: "Deprecated and ignored by router; retained for backwards compatibility"
       runner-arm64:
         type: string
         default: ubuntu-24.04-arm
-        description: "Runner to use for linux/arm64 builds"
+        description: "Deprecated and ignored by router; retained for backwards compatibility"
       runner-merge:
         type: string
         default: ubuntu-latest
-        description: "Runner to use for the merge job (default: ubuntu-latest)"
+        description: "Deprecated and ignored by router; retained for backwards compatibility"
       build-amd64:
         type: boolean
         default: true
@@ -113,9 +113,9 @@ jobs:
       image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
-      runner-amd64: ${{ inputs.runner-amd64 }}
-      runner-arm64: ${{ inputs.runner-arm64 }}
-      runner-merge: ${{ inputs.runner-merge }}
+      runner-amd64: arc-runner-set-buildkit-exp
+      runner-arm64: arc-runner-set-buildkit-exp
+      runner-merge: arc-runner-set-buildkit-exp
       build-amd64: ${{ inputs.build-amd64 }}
       build-arm64: ${{ inputs.build-arm64 }}
     secrets:
@@ -137,9 +137,9 @@ jobs:
       image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
-      runner-amd64: ${{ inputs.runner-amd64 }}
-      runner-arm64: ${{ inputs.runner-arm64 }}
-      runner-merge: ${{ inputs.runner-merge }}
+      runner-amd64: ubuntu-24.04
+      runner-arm64: ubuntu-24.04-arm
+      runner-merge: ubuntu-latest
       build-amd64: ${{ inputs.build-amd64 }}
       build-arm64: ${{ inputs.build-arm64 }}
     secrets:
