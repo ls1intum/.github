@@ -48,18 +48,6 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
-      runner-amd64:
-        type: string
-        default: ubuntu-24.04
-        description: "Deprecated and ignored by router; retained for backwards compatibility"
-      runner-arm64:
-        type: string
-        default: ubuntu-24.04-arm
-        description: "Deprecated and ignored by router; retained for backwards compatibility"
-      runner-merge:
-        type: string
-        default: ubuntu-latest
-        description: "Deprecated and ignored by router; retained for backwards compatibility"
       build-amd64:
         type: boolean
         default: true

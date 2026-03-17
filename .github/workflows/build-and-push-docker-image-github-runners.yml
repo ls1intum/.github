@@ -98,74 +98,21 @@ jobs:
   setup-matrix:
     runs-on: ${{ inputs.runner-merge || 'ubuntu-latest' }}
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      needs_merge: ${{ steps.set-matrix.outputs.needs_merge }}
-      base_tag: ${{ steps.derive-tags.outputs.base_tag }}
-      sha_tag: ${{ steps.derive-tags.outputs.sha_tag }}
-      cache_tag: ${{ steps.derive-tags.outputs.cache_tag }}
-      image_repo: ${{ steps.derive-tags.outputs.image_repo }}
+      matrix: ${{ steps.setup.outputs.matrix }}
+      needs_merge: ${{ steps.setup.outputs.needs_merge }}
+      base_tag: ${{ steps.setup.outputs.base_tag }}
+      sha_tag: ${{ steps.setup.outputs.sha_tag }}
+      cache_tag: ${{ steps.setup.outputs.cache_tag }}
+      image_repo: ${{ steps.setup.outputs.image_repo }}
     steps:
-      - id: derive-tags
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          SHORT_SHA="${GITHUB_SHA::7}"
-          REF_NAME="${{ github.ref_name }}"
-          SAFE_REF_NAME=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
-          IMAGE_REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-
-          OVERRIDE="${{ inputs.image-tag }}"
-          if [[ -n "${OVERRIDE}" ]]; then
-            BASE_TAG="${OVERRIDE}"
-          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE_TAG="pr-${{ github.event.pull_request.number }}"
-          elif [[ "${{ github.event_name }}" == "release" && -n "${{ github.event.release.tag_name || '' }}" ]]; then
-            RELEASE_REF="${{ github.event.release.tag_name }}"
-            BASE_TAG=$(echo "${RELEASE_REF}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
-          elif [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
-            BASE_TAG="latest"
-          else
-            BASE_TAG="${SAFE_REF_NAME}"
-          fi
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            CACHE_TAG="build-cache-pr-${{ github.event.pull_request.number }}"
-          elif [[ "${BASE_TAG}" == "latest" ]]; then
-            CACHE_TAG="build-cache"
-          else
-            CACHE_TAG="build-cache-${BASE_TAG}"
-          fi
-
-          echo "base_tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "sha_tag=${BASE_TAG}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "cache_tag=${CACHE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "image_repo=${IMAGE_REPO}" >> "$GITHUB_OUTPUT"
-
-      - id: set-matrix
-        run: |
-          MATRIX='{"include":['
-          PLATFORMS=()
-
-          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
-            PLATFORMS+=('{"platform":"linux/amd64","runner":"${{ inputs.runner-amd64 }}"}')
-          fi
-
-          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
-            PLATFORMS+=('{"platform":"linux/arm64","runner":"${{ inputs.runner-arm64 }}"}')
-          fi
-
-          JOINED=$(IFS=,; echo "${PLATFORMS[*]}")
-          MATRIX="${MATRIX}${JOINED}]}"
-
-          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
-          echo "Generated matrix: ${MATRIX}"
-
-          if [[ ${#PLATFORMS[@]} -gt 1 ]]; then
-            echo "needs_merge=true" >> $GITHUB_OUTPUT
-          else
-            echo "needs_merge=false" >> $GITHUB_OUTPUT
-          fi
+      - id: setup
+        uses: ./.github/actions/docker-workflow-setup
+        with:
+          image-tag: ${{ inputs.image-tag }}
+          build-amd64: ${{ inputs.build-amd64 }}
+          build-arm64: ${{ inputs.build-arm64 }}
+          runner-amd64: ${{ inputs.runner-amd64 }}
+          runner-arm64: ${{ inputs.runner-arm64 }}
 
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
