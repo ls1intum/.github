@@ -226,7 +226,7 @@ jobs:
 
       - name: Install Docker Buildx (remote)
         id: setup-buildx-remote
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           driver: remote
           endpoint: ${{ steps.buildkit-route.outputs.endpoint }}
@@ -255,14 +255,14 @@ jobs:
           echo "mirror_url=http://${NORMALIZED}" >> "$GITHUB_OUTPUT"
 
       - name: Login to registry mirror
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ steps.mirror.outputs.mirror_hostport }}
           username: ${{ secrets.registry-user || github.actor }}
           password: ${{ secrets.registry-password || secrets.GITHUB_TOKEN }}
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ secrets.registry-user || github.actor }}
@@ -300,7 +300,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
@@ -311,7 +311,7 @@ jobs:
       - name: Build and push Docker Image (single-arch, tagged)
         if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.arc-registry-cache != true
         id: build-single
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
@@ -326,7 +326,7 @@ jobs:
       - name: Build and push Docker Image (single-arch, tagged, ARC registry cache enabled)
         if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.arc-registry-cache == true
         id: build-single-cached
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
@@ -343,7 +343,7 @@ jobs:
       - name: Build and push Docker Image (multi-arch, by digest)
         if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.arc-registry-cache != true
         id: build-multi
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
@@ -358,7 +358,7 @@ jobs:
       - name: Build and push Docker Image (multi-arch, by digest, ARC registry cache enabled)
         if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.arc-registry-cache == true
         id: build-multi-cached
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
@@ -395,7 +395,7 @@ jobs:
 
       - name: Upload digest (multi-arch)
         if: needs.setup-matrix.outputs.needs_merge == 'true'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: arc-digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
@@ -424,14 +424,14 @@ jobs:
           merge-multiple: true
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Prepare tag configuration
         id: tag_config
@@ -465,7 +465,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ inputs.registry }}/${{ inputs.image-name }}
           tags: |
