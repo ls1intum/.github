@@ -48,6 +48,10 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      no-cache:
+        type: boolean
+        default: false
+        description: "Disable Docker layer cache (--no-cache). BuildKit mount caches remain available."
       registry-mirror:
         type: string
         default: ''
@@ -56,6 +60,10 @@ on:
         type: boolean
         default: false
         description: "Enable registry cache import/export in self-hosted-buildkit (ARC) mode. Default false because ARC stateful BuildKit is usually faster without remote cache sync."
+      github-registry-cache:
+        type: boolean
+        default: false
+        description: "Enable cache-from/cache-to registry cache for github-runners mode. Default false."
       build-amd64:
         type: boolean
         default: true
@@ -109,6 +117,7 @@ jobs:
       image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
+      no-cache: ${{ inputs.no-cache }}
       registry-mirror: ${{ inputs.registry-mirror }}
       arc-registry-cache: ${{ inputs.arc-registry-cache }}
       runner-amd64: arc-buildkit-eduide-amd64
@@ -135,9 +144,11 @@ jobs:
       image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
+      no-cache: ${{ inputs.no-cache }}
       runner-amd64: ubuntu-24.04
       runner-arm64: ubuntu-24.04-arm
       runner-merge: ubuntu-latest
+      github-registry-cache: ${{ inputs.github-registry-cache }}
       build-amd64: ${{ inputs.build-amd64 }}
       build-arm64: ${{ inputs.build-arm64 }}
     secrets:
