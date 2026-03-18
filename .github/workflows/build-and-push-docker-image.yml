@@ -60,6 +60,10 @@ on:
         type: string
         default: ''
         description: "Optional buildx cache-to configuration. When set together with cache-from, github-runners mode uses registry cache export."
+      github-registry-cache:
+        type: boolean
+        default: false
+        description: "Enable github-runners registry cache import/export using standard derived cache refs when custom cache-from/cache-to are not provided."
       registry-mirror:
         type: string
         default: ''
@@ -122,8 +126,6 @@ jobs:
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
       no-cache: ${{ inputs.no-cache }}
-      cache-from: ${{ inputs.cache-from }}
-      cache-to: ${{ inputs.cache-to }}
       registry-mirror: ${{ inputs.registry-mirror }}
       arc-registry-cache: ${{ inputs.arc-registry-cache }}
       runner-amd64: arc-buildkit-eduide-amd64
@@ -153,6 +155,7 @@ jobs:
       no-cache: ${{ inputs.no-cache }}
       cache-from: ${{ inputs.cache-from }}
       cache-to: ${{ inputs.cache-to }}
+      github-registry-cache: ${{ inputs.github-registry-cache }}
       runner-amd64: ubuntu-24.04
       runner-arm64: ubuntu-24.04-arm
       runner-merge: ubuntu-latest
