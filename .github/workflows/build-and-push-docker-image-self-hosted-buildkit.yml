@@ -52,6 +52,10 @@ on:
         type: string
         default: ''
         description: "Optional registry mirror address (host:port or URL) for ARC/self-hosted builds"
+      arc-registry-cache:
+        type: boolean
+        default: false
+        description: "Enable registry cache import/export in ARC mode. Default false (stateful BuildKit is typically faster without remote cache sync)."
       runner-amd64:
         type: string
         default: ubuntu-24.04
@@ -305,8 +309,23 @@ jobs:
             ${{ inputs.labels }}
 
       - name: Build and push Docker Image (single-arch, tagged)
-        if: needs.setup-matrix.outputs.needs_merge != 'true'
+        if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.arc-registry-cache != true
         id: build-single
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.docker-file }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
+          network: ${{ inputs.network }}
+          platforms: ${{ matrix.platform }}
+          secrets: ${{ secrets.docker-secrets }}
+          push: true
+
+      - name: Build and push Docker Image (single-arch, tagged, ARC registry cache enabled)
+        if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.arc-registry-cache == true
+        id: build-single-cached
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-context }}
@@ -322,8 +341,23 @@ jobs:
           push: true
 
       - name: Build and push Docker Image (multi-arch, by digest)
-        if: needs.setup-matrix.outputs.needs_merge == 'true'
+        if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.arc-registry-cache != true
         id: build-multi
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker-context }}
+          file: ${{ inputs.docker-file }}
+          tags: ${{ inputs.registry }}/${{ inputs.image-name }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ steps.build-args.outputs.build-args }}
+          network: ${{ inputs.network }}
+          platforms: ${{ matrix.platform }}
+          secrets: ${{ secrets.docker-secrets }}
+          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Build and push Docker Image (multi-arch, by digest, ARC registry cache enabled)
+        if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.arc-registry-cache == true
+        id: build-multi-cached
         uses: docker/build-push-action@v6
         with:
           context: ${{ inputs.docker-context }}
@@ -356,7 +390,7 @@ jobs:
         if: needs.setup-matrix.outputs.needs_merge == 'true'
         run: |
           mkdir -p ${{ runner.temp }}/digests
-          digest="${{ steps.build-multi.outputs.digest }}"
+          digest="${{ steps.build-multi.outputs.digest || steps.build-multi-cached.outputs.digest }}"
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest (multi-arch)

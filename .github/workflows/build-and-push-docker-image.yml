@@ -52,6 +52,10 @@ on:
         type: string
         default: ''
         description: "Optional mirror endpoint (host:port or URL). In self-hosted-buildkit mode, defaults to Zot if unset"
+      arc-registry-cache:
+        type: boolean
+        default: false
+        description: "Enable registry cache import/export in self-hosted-buildkit (ARC) mode. Default false because ARC stateful BuildKit is usually faster without remote cache sync."
       build-amd64:
         type: boolean
         default: true
@@ -106,6 +110,7 @@ jobs:
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
       registry-mirror: ${{ inputs.registry-mirror }}
+      arc-registry-cache: ${{ inputs.arc-registry-cache }}
       runner-amd64: arc-buildkit-eduide-amd64
       runner-arm64: arc-buildkit-eduide-arm64
       runner-merge: arc-buildkit-eduide-amd64
