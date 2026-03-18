@@ -106,13 +106,72 @@ jobs:
       image_repo: ${{ steps.setup.outputs.image_repo }}
     steps:
       - id: setup
-        uses: ./.github/actions/docker-workflow-setup
-        with:
-          image-tag: ${{ inputs.image-tag }}
-          build-amd64: ${{ inputs.build-amd64 }}
-          build-arm64: ${{ inputs.build-arm64 }}
-          runner-amd64: ${{ inputs.runner-amd64 }}
-          runner-arm64: ${{ inputs.runner-arm64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SHORT_SHA="${GITHUB_SHA::7}"
+          REF_NAME="${GITHUB_REF_NAME}"
+          SAFE_REF_NAME=$(echo "${REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
+          IMAGE_REPO=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+
+          OVERRIDE="${{ inputs.image-tag }}"
+          PR_NUMBER="${{ github.event.pull_request.number || '' }}"
+          RELEASE_TAG="${{ github.event.release.tag_name || '' }}"
+          if [[ -n "${OVERRIDE}" ]]; then
+            BASE_TAG="${OVERRIDE}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            if [[ -z "${PR_NUMBER}" ]]; then
+              echo "::error::pull_request event detected but PR number is missing"
+              exit 1
+            fi
+            BASE_TAG="pr-${PR_NUMBER}"
+          elif [[ "${GITHUB_EVENT_NAME}" == "release" ]]; then
+            if [[ -n "${RELEASE_TAG}" ]]; then
+              BASE_TAG=$(echo "${RELEASE_TAG}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')
+            else
+              BASE_TAG="${SAFE_REF_NAME}"
+            fi
+          elif [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_REF}" == "refs/heads/master" ]]; then
+            BASE_TAG="latest"
+          else
+            BASE_TAG="${SAFE_REF_NAME}"
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            CACHE_TAG="build-cache-pr-${PR_NUMBER}"
+          elif [[ "${BASE_TAG}" == "latest" ]]; then
+            CACHE_TAG="build-cache"
+          else
+            CACHE_TAG="build-cache-${BASE_TAG}"
+          fi
+
+          MATRIX='{"include":['
+          PLATFORMS=()
+
+          if [[ "${{ inputs.build-amd64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/amd64","runner":"${{ inputs.runner-amd64 }}"}')
+          fi
+
+          if [[ "${{ inputs.build-arm64 }}" == "true" ]]; then
+            PLATFORMS+=('{"platform":"linux/arm64","runner":"${{ inputs.runner-arm64 }}"}')
+          fi
+
+          JOINED=$(IFS=,; echo "${PLATFORMS[*]}")
+          MATRIX="${MATRIX}${JOINED}]}"
+
+          if [[ ${#PLATFORMS[@]} -gt 1 ]]; then
+            NEEDS_MERGE="true"
+          else
+            NEEDS_MERGE="false"
+          fi
+
+          echo "base_tag=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${BASE_TAG}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "cache_tag=${CACHE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${IMAGE_REPO}" >> "$GITHUB_OUTPUT"
+          echo "matrix=${MATRIX}" >> "$GITHUB_OUTPUT"
+          echo "needs_merge=${NEEDS_MERGE}" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
