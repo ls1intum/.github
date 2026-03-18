@@ -63,7 +63,7 @@ on:
       execution-mode:
         type: string
         default: ''
-        description: "Execution mode (required): self-hosted-buildkit or github-runners"
+        description: "Execution mode input. Only 3 supported operating options overall: auto-routing, self-hosted-buildkit, github-runners. This input accepts self-hosted-buildkit or github-runners."
     outputs:
       image_tag:
         description: "The tag of the image that was built"
@@ -91,22 +91,8 @@ on:
         description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
-  validate-execution-mode:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate execution mode
-        shell: bash
-        run: |
-          set -euo pipefail
-          MODE='${{ inputs.execution-mode }}'
-          if [[ "${MODE}" != "self-hosted-buildkit" && "${MODE}" != "github-runners" ]]; then
-            echo "::error::Invalid execution-mode '${MODE}'. Use 'self-hosted-buildkit' or 'github-runners'."
-            exit 1
-          fi
-
   self-hosted-buildkit:
     if: ${{ inputs.execution-mode == 'self-hosted-buildkit' }}
-    needs: validate-execution-mode
     uses: ./.github/workflows/build-and-push-docker-image-self-hosted-buildkit.yml
     with:
       ref: ${{ inputs.ref }}
@@ -132,7 +118,6 @@ jobs:
 
   github-runners:
     if: ${{ inputs.execution-mode == 'github-runners' }}
-    needs: validate-execution-mode
     uses: ./.github/workflows/build-and-push-docker-image-github-runners.yml
     with:
       ref: ${{ inputs.ref }}
