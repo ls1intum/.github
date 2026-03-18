@@ -328,6 +328,15 @@ jobs:
           secrets: ${{ secrets.docker-secrets }}
           push: true
 
+      - name: Debug no-cache flag (single-arch)
+        if: needs.setup-matrix.outputs.needs_merge != 'true'
+        shell: bash
+        run: |
+          echo "debug.build_step=single-arch"
+          echo "debug.execution_mode=self-hosted-buildkit"
+          echo "debug.no_cache_input=${{ inputs.no-cache }}"
+          echo "debug.arc_registry_cache=${{ inputs.arc-registry-cache }}"
+
       - name: Build and push Docker Image (single-arch, tagged, ARC registry cache enabled)
         if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.arc-registry-cache == true
         id: build-single-cached
@@ -379,6 +388,15 @@ jobs:
           cache-from: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},registry.insecure=true
           cache-to: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},mode=max,image-manifest=true,oci-mediatypes=true,registry.insecure=true
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
+
+      - name: Debug no-cache flag (multi-arch)
+        if: needs.setup-matrix.outputs.needs_merge == 'true'
+        shell: bash
+        run: |
+          echo "debug.build_step=multi-arch"
+          echo "debug.execution_mode=self-hosted-buildkit"
+          echo "debug.no_cache_input=${{ inputs.no-cache }}"
+          echo "debug.arc_registry_cache=${{ inputs.arc-registry-cache }}"
 
       - name: Output image tag (single-arch)
         if: needs.setup-matrix.outputs.needs_merge != 'true'
