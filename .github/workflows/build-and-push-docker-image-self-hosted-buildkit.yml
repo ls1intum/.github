@@ -317,8 +317,8 @@ jobs:
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           secrets: ${{ secrets.docker-secrets }}
-          cache-from: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }}
-          cache-to: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},mode=max,image-manifest=true,oci-mediatypes=true
+          cache-from: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},registry.insecure=true
+          cache-to: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},mode=max,image-manifest=true,oci-mediatypes=true,registry.insecure=true
           push: true
 
       - name: Build and push Docker Image (multi-arch, by digest)
@@ -334,8 +334,8 @@ jobs:
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           secrets: ${{ secrets.docker-secrets }}
-          cache-from: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }}
-          cache-to: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},mode=max,image-manifest=true,oci-mediatypes=true
+          cache-from: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},registry.insecure=true
+          cache-to: type=registry,ref=${{ steps.mirror.outputs.mirror_hostport }}/${{ needs.setup-matrix.outputs.image_repo }}:${{ needs.setup-matrix.outputs.cache_tag }},mode=max,image-manifest=true,oci-mediatypes=true,registry.insecure=true
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Output image tag (single-arch)
