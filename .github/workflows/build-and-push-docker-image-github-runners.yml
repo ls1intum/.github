@@ -60,10 +60,10 @@ on:
         type: string
         default: ''
         description: "Optional buildx cache-to configuration for github-runners mode"
-      github-registry-cache:
-        type: boolean
-        default: false
-        description: "Enable standard derived registry cache refs when cache-from/cache-to are not explicitly provided."
+      registry-mirror:
+        type: string
+        default: ''
+        description: "Optional mirror endpoint (host:port or URL). If cache refs are not set, github-runners derive cache refs from this mirror."
       runner-amd64:
         type: string
         default: ubuntu-24.04
@@ -272,7 +272,7 @@ jobs:
             ${{ inputs.labels }}
 
       - name: Build and push Docker Image (single-arch, tagged)
-        if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.cache-from == '' && inputs.cache-to == '' && inputs.github-registry-cache != true
+        if: needs.setup-matrix.outputs.needs_merge != 'true' && !(inputs.cache-from != '' && inputs.cache-to != '')
         id: build-single
         uses: docker/build-push-action@v7
         with:
@@ -288,7 +288,7 @@ jobs:
           push: true
 
       - name: Build and push Docker Image (single-arch, tagged, github registry cache enabled)
-        if: needs.setup-matrix.outputs.needs_merge != 'true' && ((inputs.cache-from != '' && inputs.cache-to != '') || inputs.github-registry-cache == true)
+        if: needs.setup-matrix.outputs.needs_merge != 'true' && inputs.cache-from != '' && inputs.cache-to != ''
         id: build-single-cached
         uses: docker/build-push-action@v7
         with:
@@ -301,8 +301,8 @@ jobs:
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           secrets: ${{ secrets.docker-secrets }}
-          cache-from: ${{ inputs.cache-from != '' && inputs.cache-to != '' && inputs.cache-from || format('type=registry,ref={0}/{1}:{2}', inputs.registry, needs.setup-matrix.outputs.image_repo, needs.setup-matrix.outputs.cache_tag) }}
-          cache-to: ${{ inputs.cache-from != '' && inputs.cache-to != '' && inputs.cache-to || format('type=registry,ref={0}/{1}:{2},mode=max,image-manifest=true,oci-mediatypes=true', inputs.registry, needs.setup-matrix.outputs.image_repo, needs.setup-matrix.outputs.cache_tag) }}
+          cache-from: ${{ inputs.cache-from }}
+          cache-to: ${{ inputs.cache-to }}
           push: true
 
       - name: Debug no-cache flag (single-arch)
@@ -312,12 +312,12 @@ jobs:
           echo "debug.build_step=single-arch"
           echo "debug.execution_mode=github-runners"
           echo "debug.no_cache_input=${{ inputs.no-cache }}"
-          echo "debug.github_registry_cache=${{ inputs.github-registry-cache }}"
+          echo "debug.registry_mirror_input=${{ inputs.registry-mirror }}"
           echo "debug.cache_from_set=${{ inputs.cache-from != '' }}"
           echo "debug.cache_to_set=${{ inputs.cache-to != '' }}"
 
       - name: Build and push Docker Image (multi-arch, by digest)
-        if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.cache-from == '' && inputs.cache-to == '' && inputs.github-registry-cache != true
+        if: needs.setup-matrix.outputs.needs_merge == 'true' && !(inputs.cache-from != '' && inputs.cache-to != '')
         id: build-multi
         uses: docker/build-push-action@v7
         with:
@@ -333,7 +333,7 @@ jobs:
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Build and push Docker Image (multi-arch, by digest, github registry cache enabled)
-        if: needs.setup-matrix.outputs.needs_merge == 'true' && ((inputs.cache-from != '' && inputs.cache-to != '') || inputs.github-registry-cache == true)
+        if: needs.setup-matrix.outputs.needs_merge == 'true' && inputs.cache-from != '' && inputs.cache-to != ''
         id: build-multi-cached
         uses: docker/build-push-action@v7
         with:
@@ -346,8 +346,8 @@ jobs:
           network: ${{ inputs.network }}
           platforms: ${{ matrix.platform }}
           secrets: ${{ secrets.docker-secrets }}
-          cache-from: ${{ inputs.cache-from != '' && inputs.cache-to != '' && inputs.cache-from || format('type=registry,ref={0}/{1}:{2}', inputs.registry, needs.setup-matrix.outputs.image_repo, needs.setup-matrix.outputs.cache_tag) }}
-          cache-to: ${{ inputs.cache-from != '' && inputs.cache-to != '' && inputs.cache-to || format('type=registry,ref={0}/{1}:{2},mode=max,image-manifest=true,oci-mediatypes=true', inputs.registry, needs.setup-matrix.outputs.image_repo, needs.setup-matrix.outputs.cache_tag) }}
+          cache-from: ${{ inputs.cache-from }}
+          cache-to: ${{ inputs.cache-to }}
           outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Debug no-cache flag (multi-arch)
@@ -357,7 +357,7 @@ jobs:
           echo "debug.build_step=multi-arch"
           echo "debug.execution_mode=github-runners"
           echo "debug.no_cache_input=${{ inputs.no-cache }}"
-          echo "debug.github_registry_cache=${{ inputs.github-registry-cache }}"
+          echo "debug.registry_mirror_input=${{ inputs.registry-mirror }}"
           echo "debug.cache_from_set=${{ inputs.cache-from != '' }}"
           echo "debug.cache_to_set=${{ inputs.cache-to != '' }}"
 
