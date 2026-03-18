@@ -48,6 +48,10 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      registry-mirror:
+        type: string
+        default: ''
+        description: "Optional mirror endpoint (host:port or URL). In self-hosted-buildkit mode, defaults to Zot if unset"
       build-amd64:
         type: boolean
         default: true
@@ -58,8 +62,8 @@ on:
         description: "Enable ARM64 build (default: true)"
       execution-mode:
         type: string
-        default: auto
-        description: "Execution mode: auto (GitHub runners), self-hosted-buildkit, or github-runners"
+        default: ''
+        description: "Execution mode (required): self-hosted-buildkit or github-runners"
     outputs:
       image_tag:
         description: "The tag of the image that was built"
@@ -87,8 +91,22 @@ on:
         description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
+  validate-execution-mode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate execution mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODE='${{ inputs.execution-mode }}'
+          if [[ "${MODE}" != "self-hosted-buildkit" && "${MODE}" != "github-runners" ]]; then
+            echo "::error::Invalid execution-mode '${MODE}'. Use 'self-hosted-buildkit' or 'github-runners'."
+            exit 1
+          fi
+
   self-hosted-buildkit:
     if: ${{ inputs.execution-mode == 'self-hosted-buildkit' }}
+    needs: validate-execution-mode
     uses: ./.github/workflows/build-and-push-docker-image-self-hosted-buildkit.yml
     with:
       ref: ${{ inputs.ref }}
@@ -101,9 +119,10 @@ jobs:
       image-tag: ${{ inputs.image-tag }}
       registry: ${{ inputs.registry }}
       network: ${{ inputs.network }}
-      runner-amd64: arc-runner-set-buildkit-exp
-      runner-arm64: arc-runner-set-buildkit-exp
-      runner-merge: arc-runner-set-buildkit-exp
+      registry-mirror: ${{ inputs.registry-mirror }}
+      runner-amd64: arc-buildkit-eduide-amd64
+      runner-arm64: arc-buildkit-eduide-arm64
+      runner-merge: arc-buildkit-eduide-amd64
       build-amd64: ${{ inputs.build-amd64 }}
       build-arm64: ${{ inputs.build-arm64 }}
     secrets:
@@ -112,7 +131,8 @@ jobs:
       docker-secrets: ${{ secrets.docker-secrets }}
 
   github-runners:
-    if: ${{ inputs.execution-mode == 'auto' || inputs.execution-mode == 'github-runners' }}
+    if: ${{ inputs.execution-mode == 'github-runners' }}
+    needs: validate-execution-mode
     uses: ./.github/workflows/build-and-push-docker-image-github-runners.yml
     with:
       ref: ${{ inputs.ref }}
