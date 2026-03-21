@@ -198,7 +198,7 @@ jobs:
     needs: setup-matrix
     if: needs.setup-matrix.outputs.matrix != '{"include":[]}'
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix: ${{ fromJSON(needs.setup-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
     outputs:
