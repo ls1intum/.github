@@ -39,7 +39,7 @@ jobs:
           cache-dependency-path: ${{ inputs.docs-path }}/yarn.lock
       
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Enable Corepack
         run: corepack enable
