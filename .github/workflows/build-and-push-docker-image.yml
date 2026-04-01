@@ -94,7 +94,7 @@ jobs:
               mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ inputs.registry }}
           username: ${{ secrets.registry-user || github.actor }}
@@ -108,7 +108,7 @@ jobs:
 
       - name: Build and push Docker Image
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ inputs.docker-context }}
           file: ${{ inputs.docker-file }}
@@ -132,9 +132,9 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"          
   
       - name: Upload digest
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -152,14 +152,14 @@ jobs:
           echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
 
       - name: Download digests
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digests-${{ env.IMAGE_NAME }}-*
+          pattern: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-linux-*
           merge-multiple: true
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
