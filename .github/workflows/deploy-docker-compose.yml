@@ -45,6 +45,9 @@ on:
 jobs:
   prepare-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     outputs:
       image-tag-to-deploy: ${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}
     
@@ -80,23 +83,20 @@ jobs:
 
       - name: Check if image exists
         run: |
+          set -euo pipefail
+
           IMAGE_NAME="${{ inputs.main-image-name }}"
           IMAGE_TAG="${{ steps.retrieve-image-tag.outputs.image-tag-to-deploy }}"
+          FULL_IMAGE_REF="ghcr.io/${IMAGE_NAME}:${IMAGE_TAG}"
 
-          echo "Checking for image ${IMAGE_NAME}:${IMAGE_TAG}"
+          echo "Checking for image ${FULL_IMAGE_REF}"
 
-          ENCODED_TOKEN=$(echo -n "${{ secrets.GITHUB_TOKEN }}" | base64)
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json" \
-            -H "Authorization: Bearer ${ENCODED_TOKEN}" \
-            "https://ghcr.io/v2/${IMAGE_NAME}/manifests/${IMAGE_TAG}")
-          
-          echo "HTTP status: $STATUS"
-          
-          if [ "$STATUS" -eq "200" ]; then
-            echo "Image ${IMAGE_NAME}:${IMAGE_TAG} exists."
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+          if docker buildx imagetools inspect "${FULL_IMAGE_REF}" >/dev/null 2>&1; then
+            echo "Image ${FULL_IMAGE_REF} exists."
           else
-            echo "Image ${IMAGE_NAME}:${IMAGE_TAG} does not exist."
+            echo "Image ${FULL_IMAGE_REF} does not exist or is not accessible."
             exit 1
           fi
 
