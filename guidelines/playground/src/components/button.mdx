@@ -1,0 +1,119 @@
+import { Meta, Primary, Controls, Story } from '@storybook/addon-docs/blocks';
+import * as ButtonStories from './button.stories';
+
+<Meta of={ButtonStories} />
+
+# Button
+
+The Button component is a fundamental UI element that triggers actions or events when clicked. It supports multiple visual variants to indicate different levels of importance and intent.
+
+## Playground
+
+<Primary />
+<Controls />
+
+Buttons are used to trigger actions or events, such as submitting a form, opening a dialog, canceling an action, or performing a delete operation.
+
+## Variants
+
+The Button component supports several variants to indicate different levels of importance and intent:
+
+### Primary
+Use for the main action on a page, such as "Submit" or "Save". This button attracts the most attention, so use it carefully.
+
+<Story of={ButtonStories.Primary} />
+
+### Secondary
+Use for less prominent actions that do not require the same level of attention as the primary action, such as "Cancel" or "Back".
+
+<Story of={ButtonStories.Secondary} />
+
+### Text
+Use for less prominent actions that don't need a background. Good for secondary actions in toolbars or navigation.
+
+<Story of={ButtonStories.Text} />
+
+### Success
+Use for actions that indicate a successful operation, such as "Confirm" or "Approve". This button is used to indicate that the action was successful.
+
+<Story of={ButtonStories.Success} />
+
+### Info
+Use for informational actions or to provide additional context.
+
+<Story of={ButtonStories.Info} />
+
+### Warning
+Use for actions that require caution or attention.
+
+<Story of={ButtonStories.Warning} />
+
+### Danger
+Use for actions that are potentially destructive, such as "Delete" or "Remove".
+
+<Story of={ButtonStories.Danger} />
+
+## Additional Styles
+
+### Icon Button
+Buttons can include icons to provide visual cues about their actions.
+
+<Story of={ButtonStories.IconButton} />
+
+### Loading Button
+Show a loading state to indicate that an action is in progress.
+
+<Story of={ButtonStories.LoadingButton} />
+
+### Outlined Button
+Use outlined buttons for a lighter, less prominent appearance.
+
+<Story of={ButtonStories.OutlinedButton} />
+
+## Sizes
+
+Buttons come in different sizes to accommodate various use cases and design requirements:
+
+### Small
+Use for compact interfaces or when space is limited. Ideal for toolbars, tables, or dense layouts.
+
+<Story of={ButtonStories.Small} />
+
+### Normal
+The default size, suitable for most use cases. Use this size for standard buttons in forms and general UI elements.
+
+<Story of={ButtonStories.Normal} />
+
+### Large
+Use for prominent actions or when you want to draw more attention to the button. Good for call-to-action buttons or important form submissions.
+
+<Story of={ButtonStories.Large} />
+
+## Usage
+
+```typescript
+import { ButtonModule } from 'primeng/button';
+
+// In your component template:
+<p-button label="Submit"></p-button>
+
+// Secondary button
+<p-button label="Cancel" severity="secondary"></p-button>
+
+// Danger button
+<p-button label="Delete" severity="danger"></p-button>
+```
+
+## Best Practices
+
+1. **Button Labels**: Use clear, action-oriented labels that describe what will happen when the button is clicked.
+2. **Variant Selection**: Choose the variant based on the importance and context of the action:
+   - Use Primary for the main action
+   - Use Secondary for supporting actions
+   - Use Danger for destructive actions
+3. **Button Placement**: Place buttons in a logical order, typically with the primary action on the right and secondary actions on the left.
+4. **Accessibility**: Ensure buttons have proper ARIA labels and are keyboard accessible.
+
+## References
+
+- [PrimeNG Button Documentation](https://primeng.org/button)
