@@ -126,9 +126,9 @@ jobs:
       cache-to: ${{ inputs.cache-to }}
       registry-mirror: ${{ inputs.registry-mirror }}
       arc-registry-cache: ${{ inputs.arc-registry-cache }}
-      runner-amd64: arc-buildkit-eduide-theiaprod-amd64
+      runner-amd64: arc-buildkit-eduide-stud-amd64
       runner-arm64: arc-buildkit-eduide-parma-arm64
-      runner-merge: arc-buildkit-eduide-theiaprod-amd64
+      runner-merge: arc-buildkit-eduide-stud-amd64
       build-amd64: ${{ inputs.build-amd64 }}
       build-arm64: ${{ inputs.build-arm64 }}
     secrets:
