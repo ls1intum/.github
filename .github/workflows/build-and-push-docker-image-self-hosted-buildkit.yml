@@ -267,6 +267,7 @@ jobs:
           echo "mirror_url=http://${NORMALIZED}" >> "$GITHUB_OUTPUT"
 
       - name: Login to registry mirror
+        if: ${{ inputs.registry-mirror != '' && startsWith(inputs.registry-mirror, 'https://') }}
         uses: docker/login-action@v4
         with:
           registry: ${{ steps.mirror.outputs.mirror_hostport }}
@@ -475,6 +476,7 @@ jobs:
           echo "mirror_hostport=${NORMALIZED}" >> "$GITHUB_OUTPUT"
 
       - name: Login to registry mirror
+        if: ${{ inputs.registry-mirror != '' && startsWith(inputs.registry-mirror, 'https://') }}
         uses: docker/login-action@v4
         with:
           registry: ${{ steps.merge-mirror.outputs.mirror_hostport }}
