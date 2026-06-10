@@ -36,6 +36,10 @@ on:
           - Full docker/metadata-action tag configuration (e.g., "type=semver,pattern={{version}}")
           - Mixed format with multiple lines (e.g., "v1.0,stable" on one line and "type=semver,pattern={{version}}" on another)
         required: false
+      image-tag:
+        type: string
+        default: ''
+        description: "Optional base image tag override (e.g. my-test-tag)"
       registry:
         type: string
         default: ghcr.io
@@ -44,191 +48,118 @@ on:
         type: string
         default: default
         description: "Networking mode for the RUN instructions during build (Default: default)"
+      no-cache:
+        type: boolean
+        default: false
+        description: "Disable Docker layer cache (--no-cache). BuildKit mount caches remain available."
+      cache-from:
+        type: string
+        default: ''
+        description: "Optional buildx cache-from configuration. When set together with cache-to, github-runners mode uses registry cache import."
+      cache-to:
+        type: string
+        default: ''
+        description: "Optional buildx cache-to configuration. When set together with cache-from, github-runners mode uses registry cache export."
+      registry-mirror:
+        type: string
+        default: ''
+        description: "Optional mirror endpoint (host:port or URL). In self-hosted-buildkit mode, defaults to Zot if unset"
+      arc-registry-cache:
+        type: boolean
+        default: false
+        description: "Enable registry cache import/export in self-hosted-buildkit (ARC) mode. Default false because ARC stateful BuildKit is usually faster without remote cache sync."
+      build-amd64:
+        type: boolean
+        default: true
+        description: "Enable AMD64 build (default: true)"
+      build-arm64:
+        type: boolean
+        default: true
+        description: "Enable ARM64 build (default: true)"
+      execution-mode:
+        type: string
+        default: ''
+        description: "Execution mode input. Only 3 supported operating options overall: auto-routing, self-hosted-buildkit, github-runners. This input accepts self-hosted-buildkit or github-runners."
     outputs:
-      image_tag: 
+      image_tag:
         description: "The tag of the image that was built"
-        value: ${{ jobs.merge.outputs.image_tag }}
-    
+        value: ${{ jobs.self-hosted-buildkit.outputs.image_tag || jobs.github-runners.outputs.image_tag }}
+      base_tag:
+        description: "Derived base Docker tag"
+        value: ${{ jobs.self-hosted-buildkit.outputs.base_tag || jobs.github-runners.outputs.base_tag }}
+      sha_tag:
+        description: "Derived immutable Docker tag with short SHA suffix"
+        value: ${{ jobs.self-hosted-buildkit.outputs.sha_tag || jobs.github-runners.outputs.sha_tag }}
+      cache_tag:
+        description: "Derived cache tag namespace"
+        value: ${{ jobs.self-hosted-buildkit.outputs.cache_tag || jobs.github-runners.outputs.cache_tag }}
+      image_repo:
+        description: "Lower-cased owner/repository name"
+        value: ${{ jobs.self-hosted-buildkit.outputs.image_repo || jobs.github-runners.outputs.image_repo }}
+
     secrets:
       registry-user:
         required: false
       registry-password:
         required: false
+      docker-secrets:
+        required: false
+        description: "Secrets to pass to Docker build (e.g., 'SECRET_NAME=secret_value')"
 
 jobs:
-  build:
-    name: Build ${{ matrix.platform }} Docker Image for ${{ inputs.image-name }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-24.04
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner || 'ubuntu-latest' }}
-    steps:
-      # Git Checkout
-      - name: Git Checkout (specific ref)
-        uses: actions/checkout@v6
-        if: ${{ inputs.ref != '' }}
-        with:
-          ref: ${{ inputs.ref }}
-      - name: Git Checkout (default)
-        uses: actions/checkout@v6
-        if: ${{ inputs.ref == '' }}
-        with:
-          fetch-depth: 1
+  self-hosted-buildkit:
+    if: ${{ inputs.execution-mode == 'self-hosted-buildkit' }}
+    uses: ./.github/workflows/build-and-push-docker-image-self-hosted-buildkit.yml
+    with:
+      ref: ${{ inputs.ref }}
+      image-name: ${{ inputs.image-name }}
+      docker-file: ${{ inputs.docker-file }}
+      docker-context: ${{ inputs.docker-context }}
+      build-args: ${{ inputs.build-args }}
+      labels: ${{ inputs.labels }}
+      tags: ${{ inputs.tags }}
+      image-tag: ${{ inputs.image-tag }}
+      registry: ${{ inputs.registry }}
+      network: ${{ inputs.network }}
+      no-cache: ${{ inputs.no-cache }}
+      cache-from: ${{ inputs.cache-from }}
+      cache-to: ${{ inputs.cache-to }}
+      registry-mirror: ${{ inputs.registry-mirror }}
+      arc-registry-cache: ${{ inputs.arc-registry-cache }}
+      runner-amd64: arc-buildkit-eduide-stud-amd64
+      runner-arm64: arc-buildkit-eduide-parma-arm64
+      runner-merge: arc-buildkit-eduide-stud-amd64
+      build-amd64: ${{ inputs.build-amd64 }}
+      build-arm64: ${{ inputs.build-arm64 }}
+    secrets:
+      registry-user: ${{ secrets.registry-user }}
+      registry-password: ${{ secrets.registry-password }}
+      docker-secrets: ${{ secrets.docker-secrets }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-  
-      - name: Install Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: "network=${{ inputs.network }}"
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["https://docker-mirror.ase.in.tum.de:8765"]
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ inputs.registry }}
-          username: ${{ secrets.registry-user || github.actor }}
-          password: ${{ secrets.registry-password || secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ inputs.registry }}/${{ inputs.image-name }}
-
-      - name: Build and push Docker Image
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ inputs.docker-context }}
-          file: ${{ inputs.docker-file }}
-          tags: ${{ inputs.registry }}/${{ inputs.image-name }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ inputs.build-args }}
-          network: ${{ inputs.network }}
-          outputs: type=image,"name=${{ inputs.registry }}/${{ inputs.image-name }}",push-by-digest=true,name-canonical=true,push=true
-
-      - name: Prepare
-        run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
-          image="${{ inputs.image-name }}"
-          echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
-
-      - name: Export digest
-        run: |
-          mkdir -p ${{ runner.temp }}/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "${{ runner.temp }}/digests/${digest#sha256:}"          
-  
-      - name: Upload digest
-        uses: actions/upload-artifact@v7
-        with:
-          name: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-${{ env.PLATFORM_PAIR }}
-          path: ${{ runner.temp }}/digests/*
-          if-no-files-found: error
-          retention-days: 1
-
-  merge:
-    runs-on: ubuntu-latest
-    outputs: 
-      image_tag: ${{ steps.output-image-tag.outputs.image_tag }}
-    needs:
-      - build
-    steps:
-      - name: Prepare
-        run: |
-          image="${{ inputs.image-name }}"
-          echo "IMAGE_NAME=${image//\//-}" >> $GITHUB_ENV
-
-      - name: Download digests
-        uses: actions/download-artifact@v8
-        with:
-          path: ${{ runner.temp }}/digests
-          pattern: digests-${{ github.run_id }}-${{ env.IMAGE_NAME }}-linux-*
-          merge-multiple: true
-
-      - name: Login to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Process tags input to support both simple tags and advanced configuration
-      - name: Prepare tag configuration
-        id: tag_config
-        run: |
-          # Use TAGS_CONFIG environment variable to store tags configuration
-          echo "TAGS_CONFIG<<EOF" >> $GITHUB_ENV
-          
-          # Default tagging configuration
-          echo "type=raw,value=latest,enable={{is_default_branch}}" >> $GITHUB_ENV
-          echo "type=ref,event=branch" >> $GITHUB_ENV
-          echo "type=ref,event=pr" >> $GITHUB_ENV
-          
-          # Check if tags input is provided
-          if [ -n "${{ inputs.tags }}" ]; then
-            # Process input line by line
-            echo "${{ inputs.tags }}" | while IFS= read -r line || [[ -n "$line" ]]; do
-              # Trim whitespace
-              line=$(echo "$line" | xargs)
-          
-              if [ -n "$line" ]; then
-                if [[ "$line" == *"type="* ]]; then
-                  # Line contains configuration, add it directly
-                  echo "$line" >> $GITHUB_ENV
-                else
-                  # Line contains simple tags, process as comma-separated list
-                  IFS=',' read -ra TAG_ARRAY <<< "$line"
-                  for tag in "${TAG_ARRAY[@]}"; do
-                    # Trim whitespace from each tag
-                    tag=$(echo "$tag" | xargs)
-                    if [ -n "$tag" ]; then
-                      echo "type=raw,value=${tag}" >> $GITHUB_ENV
-                    fi
-                  done
-                fi
-              fi
-            done
-          fi
-          
-          echo "EOF" >> $GITHUB_ENV
-
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ inputs.registry }}/${{ inputs.image-name }}
-          tags: |
-            ${{ env.TAGS_CONFIG }}
-          labels: |
-            ${{ inputs.labels }}        
-
-      - name: Create manifest list and push
-        working-directory: ${{ runner.temp }}/digests
-        run: |
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ inputs.registry }}/${{ inputs.image-name }}@sha256:%s ' *)          
-
-      - name: Inspect image
-        run: |
-          docker buildx imagetools inspect ${{ inputs.registry }}/${{ inputs.image-name }}:${{ steps.meta.outputs.version }}
-          
-      - id: output-image-tag
-        run: |
-          echo "image_tag=${{ steps.meta.outputs.version }}" >> "$GITHUB_OUTPUT"
+  github-runners:
+    if: ${{ inputs.execution-mode == 'github-runners' }}
+    uses: ./.github/workflows/build-and-push-docker-image-github-runners.yml
+    with:
+      ref: ${{ inputs.ref }}
+      image-name: ${{ inputs.image-name }}
+      docker-file: ${{ inputs.docker-file }}
+      docker-context: ${{ inputs.docker-context }}
+      build-args: ${{ inputs.build-args }}
+      labels: ${{ inputs.labels }}
+      tags: ${{ inputs.tags }}
+      image-tag: ${{ inputs.image-tag }}
+      registry: ${{ inputs.registry }}
+      network: ${{ inputs.network }}
+      no-cache: ${{ inputs.no-cache }}
+      cache-from: ${{ inputs.cache-from }}
+      cache-to: ${{ inputs.cache-to }}
+      registry-mirror: ${{ inputs.registry-mirror }}
+      runner-amd64: ubuntu-24.04
+      runner-arm64: ubuntu-24.04-arm
+      runner-merge: ubuntu-latest
+      build-amd64: ${{ inputs.build-amd64 }}
+      build-arm64: ${{ inputs.build-arm64 }}
+    secrets:
+      registry-user: ${{ secrets.registry-user }}
+      registry-password: ${{ secrets.registry-password }}
+      docker-secrets: ${{ secrets.docker-secrets }}
